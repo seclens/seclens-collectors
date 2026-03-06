@@ -1,11 +1,6 @@
 {
   "run_mode": "enabled_only",
-  "enabled": [
-    "the_hacker_news",
-    "cloudflare_blog",
-    "linuxsecurity_hybrid",
-    "github_advisory"
-  ],
+  "enabled": [],
   "disabled": [],
   "concurrency": 2,
   "timeout_seconds": 300,

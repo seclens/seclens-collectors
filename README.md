@@ -52,13 +52,15 @@ Profile example (`profiles/default.json`):
 ```json
 {
   "run_mode": "enabled_only",
-  "enabled": ["the_hacker_news", "cloudflare_blog"],
+  "enabled": [],
   "disabled": [],
   "concurrency": 2,
   "timeout_seconds": 300,
   "continue_on_error": true
 }
 ```
+
+Default profile keeps all collectors disabled (`enabled: []`). Enable only what you need.
 
 `run_mode` options:
 - `enabled_only`: run only collectors in `enabled`

@@ -89,8 +89,6 @@ def resolve_target_slugs(profile: dict[str, Any], available: dict[str, Path]) ->
         raise ValueError(f"Unknown collectors in 'disabled': {', '.join(unknown_disabled)}")
 
     if mode == "enabled_only":
-        if not enabled:
-            raise ValueError("run_mode=enabled_only requires non-empty 'enabled' list")
         selected = enabled - disabled
     elif mode == "all_except_disabled":
         selected = available_slugs - disabled
