@@ -20,19 +20,49 @@ Each collector is a standalone program that:
 git clone https://github.com/seclens/seclens-collectors.git
 cd seclens-collectors
 
-# 2. Pick a collector
-cd collectors/the_hacker_news
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure
+# 2. Configure
 export SECLENS_URL="https://your-seclens-server.com"
 export SECLENS_TOKEN="your-api-token"
 
-# 5. Run
+# 3. Run one collector (example)
+cd collectors/the_hacker_news
+pip install -r requirements.txt
 python collector.py
 ```
+
+## Centralized Runner (Enable/Disable Collectors by Profile)
+
+Use a single profile file to decide which collectors run, instead of maintaining dozens of cron entries.
+
+```bash
+cd seclens-collectors
+
+# Show all discovered collectors
+python run_collectors.py --list
+
+# Preview profile selection only
+python run_collectors.py --profile profiles/default.json --dry-run
+
+# Execute selected collectors
+python run_collectors.py --profile profiles/default.json
+```
+
+Profile example (`profiles/default.json`):
+
+```json
+{
+  "run_mode": "enabled_only",
+  "enabled": ["the_hacker_news", "cloudflare_blog"],
+  "disabled": [],
+  "concurrency": 2,
+  "timeout_seconds": 300,
+  "continue_on_error": true
+}
+```
+
+`run_mode` options:
+- `enabled_only`: run only collectors in `enabled`
+- `all_except_disabled`: run all discovered collectors except `disabled`
 
 ## Collector List
 
@@ -98,8 +128,8 @@ docker compose up
 ## Running with Cron
 
 ```bash
-# Add to crontab: run every 2 hours
-0 */2 * * * cd /opt/seclens-collectors/collectors/the_hacker_news && python collector.py >> /var/log/thn.log 2>&1
+# Single entry: profile-driven run every hour
+0 * * * * cd /opt/seclens-collectors && /usr/bin/python3 run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors.log 2>&1
 ```
 
 ## License

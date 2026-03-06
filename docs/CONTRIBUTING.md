@@ -152,6 +152,16 @@ Each collector should have a README explaining:
 
 To test your collector against a SecLens server, you need an API token. Contact the server administrator or set up a local SecLens instance for development.
 
+## Centralized Scheduling
+
+This repository supports a centralized runner (`run_collectors.py`) so operators can enable/disable collectors through one profile file.
+
+- Profile example: `profiles/default.json`
+- Dry run: `python run_collectors.py --profile profiles/default.json --dry-run`
+- Run selected collectors: `python run_collectors.py --profile profiles/default.json`
+
+This avoids maintaining many independent cron entries.
+
 ## Questions?
 
 Open an issue on this repository if you have questions about contributing.

@@ -10,11 +10,20 @@
 #   3. Or: crontab -e and paste the entries
 #
 # Format: minute hour day month weekday command
+#
+# Recommended (new): use centralized profile runner.
+# Legacy per-collector entries are kept below for reference.
 
 # --- Environment ---
 SECLENS_URL=https://your-seclens-server.com
 SECLENS_TOKEN=slct_your_token_here
 COLLECTORS_DIR=/opt/seclens-collectors
+
+# --- Profile-driven scheduling (recommended) ---
+# Run selected collectors every hour using profiles/default.json
+0 * * * *   cd $COLLECTORS_DIR && python run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors_runner.log 2>&1
+
+# If you use profile-driven scheduling, comment out legacy entries below.
 
 # --- RSS/News (every hour) ---
 0 * * * *   cd $COLLECTORS_DIR && python collectors/the_hacker_news/collector.py       >> /var/log/seclens/the_hacker_news.log 2>&1
