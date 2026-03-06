@@ -1,0 +1,13 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+# feed_url: "https://wechat.doonsec.com/rss.xml"  # Optional override
+
+# Whitelist filtering (optional)
+# whitelist_enabled: false
+# whitelist_authors: "author1,author2,author3"
+
+# Recommended schedule: every 30 minutes
+# crontab: */30 * * * * cd /path/to/collector && python collector.py

@@ -1,0 +1,61 @@
+# SecLens Collectors - Cron Schedule Template
+#
+# Copy this file and adjust paths and schedules as needed.
+# Ensure SECLENS_URL and SECLENS_TOKEN are set in the environment
+# or in a .env file sourced by the wrapper script.
+#
+# Usage:
+#   1. Copy: cp cron.example /etc/cron.d/seclens-collectors
+#   2. Edit paths and schedules
+#   3. Or: crontab -e and paste the entries
+#
+# Format: minute hour day month weekday command
+
+# --- Environment ---
+SECLENS_URL=https://your-seclens-server.com
+SECLENS_TOKEN=slct_your_token_here
+COLLECTORS_DIR=/opt/seclens-collectors
+
+# --- RSS/News (every hour) ---
+0 * * * *   cd $COLLECTORS_DIR && python collectors/the_hacker_news/collector.py       >> /var/log/seclens/the_hacker_news.log 2>&1
+5 * * * *   cd $COLLECTORS_DIR && python collectors/cloudflare_blog/collector.py        >> /var/log/seclens/cloudflare_blog.log 2>&1
+10 * * * *  cd $COLLECTORS_DIR && python collectors/linuxsecurity_hybrid/collector.py   >> /var/log/seclens/linuxsecurity_hybrid.log 2>&1
+15 * * * *  cd $COLLECTORS_DIR && python collectors/hackerone_blog/collector.py          >> /var/log/seclens/hackerone_blog.log 2>&1
+20 * * * *  cd $COLLECTORS_DIR && python collectors/sihou_news/collector.py              >> /var/log/seclens/sihou_news.log 2>&1
+25 * * * *  cd $COLLECTORS_DIR && python collectors/freebuf_community/collector.py       >> /var/log/seclens/freebuf_community.log 2>&1
+
+# --- Vendor Advisories (every 2 hours) ---
+0 */2 * * *   cd $COLLECTORS_DIR && python collectors/github_advisory/collector.py        >> /var/log/seclens/github_advisory.log 2>&1
+5 */2 * * *   cd $COLLECTORS_DIR && python collectors/chrome_stable_updates/collector.py   >> /var/log/seclens/chrome_stable_updates.log 2>&1
+10 */2 * * *  cd $COLLECTORS_DIR && python collectors/apple_security_updates/collector.py  >> /var/log/seclens/apple_security_updates.log 2>&1
+15 */2 * * *  cd $COLLECTORS_DIR && python collectors/msrc_update_guide/collector.py       >> /var/log/seclens/msrc_update_guide.log 2>&1
+20 */2 * * *  cd $COLLECTORS_DIR && python collectors/oracle_security_alert/collector.py   >> /var/log/seclens/oracle_security_alert.log 2>&1
+25 */2 * * *  cd $COLLECTORS_DIR && python collectors/nvidia_security_bulletin/collector.py >> /var/log/seclens/nvidia_security_bulletin.log 2>&1
+30 */2 * * *  cd $COLLECTORS_DIR && python collectors/adobe_security/collector.py          >> /var/log/seclens/adobe_security.log 2>&1
+35 */2 * * *  cd $COLLECTORS_DIR && python collectors/atlassian_security/collector.py      >> /var/log/seclens/atlassian_security.log 2>&1
+
+# --- Cloud Provider (every 3 hours) ---
+0 */3 * * *   cd $COLLECTORS_DIR && python collectors/aws_security_bulletins/collector.py  >> /var/log/seclens/aws_security_bulletins.log 2>&1
+5 */3 * * *   cd $COLLECTORS_DIR && python collectors/aliyun_security/collector.py         >> /var/log/seclens/aliyun_security.log 2>&1
+10 */3 * * *  cd $COLLECTORS_DIR && python collectors/tencent_cloud_security/collector.py   >> /var/log/seclens/tencent_cloud_security.log 2>&1
+15 */3 * * *  cd $COLLECTORS_DIR && python collectors/huawei_security/collector.py          >> /var/log/seclens/huawei_security.log 2>&1
+
+# --- Linux Distro (every 4 hours) ---
+0 */4 * * *   cd $COLLECTORS_DIR && python collectors/ubuntu_security_notice/collector.py   >> /var/log/seclens/ubuntu_security_notice.log 2>&1
+5 */4 * * *   cd $COLLECTORS_DIR && python collectors/redhat_advisory/collector.py          >> /var/log/seclens/redhat_advisory.log 2>&1
+10 */4 * * *  cd $COLLECTORS_DIR && python collectors/amazon_linux_al1/collector.py         >> /var/log/seclens/amazon_linux_al1.log 2>&1
+15 */4 * * *  cd $COLLECTORS_DIR && python collectors/amazon_linux_al2/collector.py         >> /var/log/seclens/amazon_linux_al2.log 2>&1
+20 */4 * * *  cd $COLLECTORS_DIR && python collectors/amazon_linux_al2023/collector.py      >> /var/log/seclens/amazon_linux_al2023.log 2>&1
+25 */4 * * *  cd $COLLECTORS_DIR && python collectors/amazon_linux_announcements/collector.py >> /var/log/seclens/amazon_linux_announcements.log 2>&1
+
+# --- Vulnerability DBs (every 6 hours) ---
+0 */6 * * *   cd $COLLECTORS_DIR && python collectors/exploit_db/collector.py               >> /var/log/seclens/exploit_db.log 2>&1
+10 */6 * * *  cd $COLLECTORS_DIR && python collectors/vuldb/collector.py                    >> /var/log/seclens/vuldb.log 2>&1
+20 */6 * * *  cd $COLLECTORS_DIR && python collectors/aliyun_avd/collector.py               >> /var/log/seclens/aliyun_avd.log 2>&1
+
+# --- Chinese Gov/Research (every 6 hours) ---
+30 */6 * * *  cd $COLLECTORS_DIR && python collectors/cnnvd_vulnerability/collector.py      >> /var/log/seclens/cnnvd_vulnerability.log 2>&1
+35 */6 * * *  cd $COLLECTORS_DIR && python collectors/cnnvd_announcement/collector.py       >> /var/log/seclens/cnnvd_announcement.log 2>&1
+40 */6 * * *  cd $COLLECTORS_DIR && python collectors/cnvd_vulnerability/collector.py       >> /var/log/seclens/cnvd_vulnerability.log 2>&1
+45 */6 * * *  cd $COLLECTORS_DIR && python collectors/cnvdb/collector.py                    >> /var/log/seclens/cnvdb.log 2>&1
+50 */6 * * *  cd $COLLECTORS_DIR && python collectors/tc260_consultations/collector.py      >> /var/log/seclens/tc260_consultations.log 2>&1

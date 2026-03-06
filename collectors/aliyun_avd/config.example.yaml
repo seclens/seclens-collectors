@@ -1,0 +1,14 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+# base_url: "https://avd.aliyun.com"
+# max_age_days: 60  # Only collect vulnerabilities from the last N days
+
+# Chrome/Selenium settings (optional)
+# chrome_binary_path: "/usr/bin/google-chrome"
+# chrome_driver_path: "/usr/local/bin/chromedriver"
+
+# Recommended schedule: every 4 hours
+# crontab: 0 */4 * * * cd /path/to/collector && python collector.py

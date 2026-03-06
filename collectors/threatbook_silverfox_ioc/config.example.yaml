@@ -1,0 +1,10 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+threatbook_cn_api_key: ""  # Optional: ThreatBook API key for SHA256->MD5/SHA1 enrichment
+skip_hash_lookup: false    # Set to true to skip hash enrichment
+
+# Recommended schedule: every 1 hour
+# crontab: 0 * * * * cd /path/to/collector && python collector.py

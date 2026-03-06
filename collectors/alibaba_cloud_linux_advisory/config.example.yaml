@@ -1,0 +1,9 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+feed_url: "https://alas.aliyuncs.com/api/rss/v1/errata/rss.xml"
+
+# Recommended schedule: every 2 hours
+# crontab: 0 */2 * * * cd /path/to/collector && python collector.py

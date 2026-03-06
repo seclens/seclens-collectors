@@ -1,0 +1,9 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+days_back: 30  # Number of days to look back for intelligence reports
+
+# Recommended schedule: every 2 hours
+# crontab: 0 */2 * * * cd /path/to/collector && python collector.py

@@ -1,0 +1,10 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+# api_url: "https://newsupport.lenovo.com.cn/api/SafeNotice/SafeNoticeListInfo"
+# page_size: 20
+
+# Recommended schedule: every 6 hours
+# crontab: 0 */6 * * * cd /path/to/collector && python collector.py

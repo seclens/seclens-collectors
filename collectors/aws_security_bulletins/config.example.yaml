@@ -1,0 +1,9 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+feed_url: "https://aws.amazon.com/security/security-bulletins/rss/feed/"
+
+# Recommended schedule: every 1 hour
+# crontab: 0 * * * * cd /path/to/collector && python collector.py

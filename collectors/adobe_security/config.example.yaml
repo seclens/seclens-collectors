@@ -1,0 +1,9 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+list_url: "https://helpx.adobe.com/security/Home.html"
+
+# Recommended schedule: every 8 hours
+# crontab: 0 */8 * * * cd /path/to/collector && python collector.py

@@ -1,0 +1,10 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+api_url: "https://www.atlassian.com/gateway/api/vuln-transparency/v1/products"
+days_filter: 30  # Only collect CVEs from the last N days
+
+# Recommended schedule: every 6 hours
+# crontab: 0 */6 * * * cd /path/to/collector && python collector.py

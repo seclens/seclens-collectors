@@ -1,0 +1,9 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+# list_url: "https://www.tc260.org.cn/front/bzzqyjList.html"  # Optional override
+
+# Recommended schedule: every 4 hours
+# crontab: 0 */4 * * * cd /path/to/collector && python collector.py
