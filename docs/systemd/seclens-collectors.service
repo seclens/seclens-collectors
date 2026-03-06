@@ -1,0 +1,11 @@
+[Unit]
+Description=SecLens Collectors Runner (profile-driven)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/seclens-collectors
+EnvironmentFile=/opt/seclens-collectors/.env
+ExecStart=/usr/bin/python3 /opt/seclens-collectors/run_collectors.py --profile profiles/default.json
+

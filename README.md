@@ -134,6 +134,21 @@ docker compose up
 0 * * * * cd /opt/seclens-collectors && /usr/bin/python3 run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors.log 2>&1
 ```
 
+## Running with systemd timer (recommended)
+
+```bash
+sudo cp docs/systemd/seclens-collectors.service /etc/systemd/system/
+sudo cp docs/systemd/seclens-collectors.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now seclens-collectors.timer
+
+# Manual trigger (optional)
+sudo systemctl start seclens-collectors.service
+
+# View logs
+sudo journalctl -u seclens-collectors.service -f
+```
+
 ## License
 
 MIT
