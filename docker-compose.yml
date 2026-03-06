@@ -1,0 +1,22 @@
+# SecLens Collectors - Docker Compose
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your credentials
+#   2. docker compose up          (run all collectors once)
+#   3. docker compose up -d       (run in background)
+#
+# To run a single collector:
+#   docker compose run the_hacker_news
+
+services:
+  the_hacker_news:
+    build: collectors/the_hacker_news
+    env_file: .env
+    restart: "no"
+    # To run on a schedule, use the host's cron or a scheduler container
+
+  # --- Add more collectors below ---
+  # cloudflare_blog:
+  #   build: collectors/cloudflare_blog
+  #   env_file: .env
+  #   restart: "no"
