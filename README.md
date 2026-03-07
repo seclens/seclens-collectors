@@ -152,6 +152,8 @@ python run_collectors.py --profile profiles/default.json
   "disabled": [],
   "concurrency": 1,
   "timeout_seconds": 300,
+  "emit_empty_heartbeat": true,
+  "heartbeat_timeout_seconds": 15,
   "continue_on_error": true,
   "dry_run": false,
   "env": {},
@@ -171,6 +173,8 @@ python run_collectors.py --profile profiles/default.json
 - `disabled`：禁用的插件 slug 列表
 - `concurrency`：并发执行数量
 - `timeout_seconds`：单插件超时时间
+- `emit_empty_heartbeat`：每轮执行后发送空 payload 心跳（默认开启）
+- `heartbeat_timeout_seconds`：心跳请求超时（秒）
 - `continue_on_error`：单插件失败后是否继续其他插件
 - `dry_run`：只展示调度结果，不真正执行
 - `env`：全局环境变量，注入到所有插件
@@ -198,6 +202,14 @@ python run_collectors.py --profile profiles/default.json
 - `interval_minutes`：该插件周期（分钟）
 - `anchor_utc`：该插件锚点时间（UTC，ISO8601）
 - `env`：插件级环境变量（默认不配置，即不使用代理）
+
+## 空结果心跳（默认开启）
+
+- 调度器在每个插件执行后会向 `POST /v1/ingest/bulletins` 发送 `[]` 作为心跳。
+- 请求头携带：
+  - `X-SecLens-Source-Slug: <plugin-slug>`
+  - `X-SecLens-Heartbeat-Status: ok|failed|timeout`
+- 用途：即使插件本轮无新数据，也能在服务端看到“客户端仍在线、网络可达、插件已执行”。
 
 ## 周期优先级
 

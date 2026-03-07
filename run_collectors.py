@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import requests
+
 
 ROOT = Path(__file__).resolve().parent
 COLLECTORS_DIR = ROOT / "collectors"
@@ -375,6 +377,41 @@ def _run_one_collector(
         )
 
 
+def _emit_empty_heartbeat(
+    *,
+    slug: str,
+    result: CollectorResult,
+    env: dict[str, str],
+    timeout_seconds: int,
+) -> None:
+    seclens_url = (env.get("SECLENS_URL") or "").strip().rstrip("/")
+    seclens_token = (env.get("SECLENS_TOKEN") or "").strip()
+    if not seclens_url or not seclens_token:
+        return
+
+    status = "ok"
+    if result.timed_out:
+        status = "timeout"
+    elif result.returncode != 0:
+        status = "failed"
+
+    headers = {
+        "Authorization": f"Bearer {seclens_token}",
+        "Content-Type": "application/json",
+        "X-SecLens-Source-Slug": slug,
+        "X-SecLens-Heartbeat-Status": status,
+    }
+    endpoint = f"{seclens_url}/v1/ingest/bulletins"
+
+    try:
+        resp = requests.post(endpoint, json=[], headers=headers, timeout=timeout_seconds)
+        resp.raise_for_status()
+    except Exception as exc:
+        print(f"[HEARTBEAT-FAIL] {slug}: {exc}", file=sys.stderr)
+    else:
+        print(f"[HEARTBEAT-OK] {slug}: status={status}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run SecLens collectors by profile.")
     parser.add_argument(
@@ -417,6 +454,8 @@ def main() -> int:
     concurrency = int(profile.get("concurrency", 1))
     timeout_seconds = int(profile.get("timeout_seconds", 300))
     continue_on_error = bool(profile.get("continue_on_error", True))
+    emit_heartbeat = bool(profile.get("emit_empty_heartbeat", True))
+    heartbeat_timeout_seconds = int(profile.get("heartbeat_timeout_seconds", 15))
     env_overrides = {
         str(k): str(v)
         for k, v in dict(profile.get("env", {})).items()
@@ -501,6 +540,16 @@ def main() -> int:
         for future in as_completed(future_map):
             result = future.result()
             results.append(result)
+            merged_env = {**env_overrides, **schedules[result.slug].env_overrides}
+
+            if emit_heartbeat:
+                _emit_empty_heartbeat(
+                    slug=result.slug,
+                    result=result,
+                    env=merged_env,
+                    timeout_seconds=heartbeat_timeout_seconds,
+                )
+
             status = "OK" if result.returncode == 0 else "FAIL"
             print(f"[{status}] {result.slug} ({result.duration_seconds:.1f}s)")
             if result.stdout.strip():

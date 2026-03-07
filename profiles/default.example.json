@@ -4,6 +4,8 @@
   "disabled": [],
   "concurrency": 2,
   "timeout_seconds": 300,
+  "emit_empty_heartbeat": true,
+  "heartbeat_timeout_seconds": 15,
   "continue_on_error": true,
   "dry_run": false,
   "env": {},
