@@ -1,0 +1,22 @@
+{
+  "name": "VIPRead RSS Collector",
+  "version": "1.0.0",
+  "slug": "vipread",
+  "entrypoint": "collector:main",
+  "description": "Collects security knowledge articles from VIPRead RSS feed.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "VIPRead",
+    "homepage": "https://vipread.com/",
+    "feed_url": "https://vipread.com/rss"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "community_news",
+    "group_title": "社区情报",
+    "group_description": "来自安全社区与技术媒体的情报与观察。",
+    "group_order": 30,
+    "source_title": "VIPRead",
+    "source_order": 25
+  }
+}

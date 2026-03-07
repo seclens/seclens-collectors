@@ -18,6 +18,7 @@ import os
 import re
 import sys
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import requests
 
@@ -25,8 +26,13 @@ import requests
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -43,6 +49,11 @@ REQUEST_HEADERS = {
     "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
     "User-Agent": USER_AGENT,
 }
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
+    SOURCE_SLUG,
+    repo_root=Path(__file__).resolve().parents[2],
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +82,22 @@ def _clean_html(value: str | None) -> str | None:
     cleaned = re.sub(r'<[^>]+>', ' ', cleaned)
     cleaned = re.sub(r'\s+', ' ', cleaned)
     return cleaned.strip() or None
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +166,9 @@ def normalize(item: dict) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": external_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -199,17 +229,38 @@ def main():
         sys.exit(1)
 
     entries = fetch_feed()
-    bulletins = [normalize(entry) for entry in entries]
-
-    if not bulletins:
-        logger.info("No items to push")
+    if not entries:
+        logger.info("No feed items fetched")
         return
 
+    newest_cursor = entries[0].get("guid") or entries[0].get("link") or ""
+    cursor = load_cursor()
+    if cursor:
+        fresh_entries: list[dict] = []
+        for entry in entries:
+            entry_cursor = entry.get("guid") or entry.get("link") or ""
+            if entry_cursor == cursor:
+                break
+            fresh_entries.append(entry)
+        logger.info("Cursor loaded: %s, %d new candidate items", cursor, len(fresh_entries))
+        entries = fresh_entries
+    else:
+        logger.info("No cursor found, treating current feed as initial batch")
+
+    if not entries:
+        logger.info("No new items since cursor, skip push")
+        return
+
+    bulletins = [normalize(entry) for entry in entries]
+
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if newest_cursor:
+        save_cursor(newest_cursor)
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
