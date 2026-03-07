@@ -17,7 +17,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -51,6 +51,7 @@ ARTICLE_ACCEPT = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"
 STATE_FILE_NAME = ".cursor"
 REQUEST_TIMEOUT = 30
 DEFAULT_LIMIT = 50
+MAX_PUBLISHED_AGE_DAYS = 5 * 365
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
@@ -397,11 +398,20 @@ def main():
     # Apply cursor-based dedup
     cursor = load_cursor()
     selected = []
+    now_utc = datetime.now(UTC)
+    min_published = now_utc - timedelta(days=MAX_PUBLISHED_AGE_DAYS)
     for entry in entries:
         if cursor and entry.published_at:
             try:
                 entry_dt = datetime.fromisoformat(entry.published_at)
                 if entry_dt <= cursor:
+                    continue
+            except ValueError:
+                pass
+        if entry.published_at:
+            try:
+                entry_dt = datetime.fromisoformat(entry.published_at)
+                if entry_dt < min_published:
                     continue
             except ValueError:
                 pass
