@@ -64,6 +64,14 @@ Profile example (`profiles/default.json`):
     "the_hacker_news": {
       "interval_minutes": 30,
       "anchor_utc": "2026-03-07T02:10:00Z"
+    },
+    "cloudflare_blog": {
+      "interval_minutes": 60,
+      "anchor_utc": "2026-03-07T02:25:00Z",
+      "env": {
+        "HTTP_PROXY": "http://192.168.15.88:8080",
+        "HTTPS_PROXY": "http://192.168.15.88:8080"
+      }
     }
   }
 }
@@ -83,6 +91,7 @@ Scheduling priority (highest to lowest):
 
 The scheduler persists `next_due_at` in `state_file`, so service restarts do not trigger all collectors at once.
 Set `anchor_utc` to spread collector start times and avoid burst traffic.
+`schedule_overrides.<slug>.env` can inject plugin-specific environment variables (for example proxy settings). By default, plugins do not use a proxy unless configured.
 
 ## Collector List
 

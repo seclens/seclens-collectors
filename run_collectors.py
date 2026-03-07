@@ -34,6 +34,7 @@ class CollectorSchedule:
     next_due_at: datetime
     due_now: bool
     source: str
+    env_overrides: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -253,6 +254,19 @@ def _resolve_schedule(
             except ValueError:
                 pass
 
+    plugin_env: dict[str, str] = {}
+    if isinstance(override, dict):
+        raw_env = override.get("env", {})
+        if raw_env is not None:
+            if not isinstance(raw_env, dict):
+                raise ValueError(f"schedule_overrides.{slug}.env must be an object")
+            for key, value in raw_env.items():
+                if not isinstance(key, str):
+                    raise ValueError(f"schedule_overrides.{slug}.env keys must be strings")
+                if value is None:
+                    continue
+                plugin_env[str(key)] = str(value)
+
     source = f"interval={interval_source},anchor={anchor_source}"
     return CollectorSchedule(
         slug=slug,
@@ -261,6 +275,7 @@ def _resolve_schedule(
         next_due_at=next_due,
         due_now=now_utc >= next_due,
         source=source,
+        env_overrides=plugin_env,
     )
 
 
@@ -429,10 +444,13 @@ def main() -> int:
                 slug,
                 available[slug],
                 timeout_seconds,
-                env_overrides,
+                {**env_overrides, **schedules[slug].env_overrides},
             )
             future_map[future] = slug
             started += 1
+            plugin_env_keys = sorted(schedules[slug].env_overrides.keys())
+            if plugin_env_keys:
+                print(f"[ENV] {slug}: plugin env keys={', '.join(plugin_env_keys)}")
 
         for future in as_completed(future_map):
             result = future.result()
