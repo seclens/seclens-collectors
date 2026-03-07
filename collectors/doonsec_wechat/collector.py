@@ -152,9 +152,18 @@ def fetch_feed(feed_url: str = FEED_URL, limit: int | None = None) -> list[dict]
     logger.info("Fetching feed: %s", feed_url)
     session = requests.Session()
     session.headers.update(REQUEST_HEADERS)
-    response = session.get(feed_url, timeout=REQUEST_TIMEOUT)
-    response.raise_for_status()
-    root = ET.fromstring(response.content)
+    try:
+        response = session.get(feed_url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Failed to fetch Doonsec feed: %s", exc)
+        return []
+
+    try:
+        root = ET.fromstring(response.content)
+    except ET.ParseError as exc:
+        logger.warning("Failed to parse Doonsec feed XML: %s", exc)
+        return []
     channel = root.find("channel")
     items = channel.findall("item") if channel is not None else root.findall(".//item")
 
