@@ -1,0 +1,22 @@
+{
+  "name": "Lenovo Security Advisory Collector",
+  "version": "1.0.0",
+  "slug": "lenovo_security_advisory",
+  "entrypoint": "collector:main",
+  "description": "Collects product security advisories from Lenovo support APIs.",
+  "schedule": "21600",
+  "source": {
+    "publisher": "Lenovo",
+    "homepage": "https://newsupport.lenovo.com.cn/SecurityPolicy.html",
+    "feed_url": "https://newsupport.lenovo.com.cn/api/SafeNotice/SafeNoticeListInfo"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "联想安全公告",
+    "source_order": 73
+  }
+}

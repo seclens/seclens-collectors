@@ -1,0 +1,22 @@
+{
+  "name": "Huawei Security Advisory Collector",
+  "version": "1.0.0",
+  "slug": "huawei_security",
+  "entrypoint": "collector:main",
+  "description": "Collects enterprise security advisories from Huawei PSIRT API.",
+  "schedule": "21600",
+  "source": {
+    "publisher": "Huawei",
+    "homepage": "https://securitybulletin.huawei.com/enterprise/en/security-advisory",
+    "feed_url": "https://securitybulletin.huawei.com/vdmsapi/services/vdmsapi/rest/v1/enterprise/advisories"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "华为安全公告",
+    "source_order": 72
+  }
+}

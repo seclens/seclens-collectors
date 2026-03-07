@@ -15,14 +15,19 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import List, Sequence
+from pathlib import Path
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -34,6 +39,8 @@ SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 SOURCE_SLUG = "huawei_security"
 USER_AGENT = "SeclensCollector/2.0 (huawei_security)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 API_URL = "https://securitybulletin.huawei.com/vdmsapi/services/vdmsapi/rest/v1/enterprise/advisories"
 DEFAULT_HEADERS = {
@@ -50,6 +57,22 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 LOGGER = logging.getLogger(SOURCE_SLUG)
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +217,9 @@ class HuaweiCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": external_id,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -261,16 +287,36 @@ def main():
 
     collector = HuaweiCollector()
     bulletins = collector.collect()
+    latest_cursor = None
+    if bulletins:
+        latest_cursor = bulletins[0].get("source", {}).get("external_id")
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered: list[dict] = []
+        for bulletin in bulletins:
+            current = str(bulletin.get("source", {}).get("external_id") or "")
+            if current == previous_cursor:
+                break
+            filtered.append(bulletin)
+        bulletins = filtered
+        LOGGER.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(bulletins),
+        )
 
     if not bulletins:
         LOGGER.info("No bulletins to push")
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if latest_cursor:
+        save_cursor(str(latest_cursor))
+    LOGGER.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
