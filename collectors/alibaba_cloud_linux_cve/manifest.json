@@ -1,0 +1,22 @@
+{
+  "name": "Alibaba Cloud Linux CVE Collector",
+  "version": "1.0.0",
+  "slug": "alibaba_cloud_linux_cve",
+  "entrypoint": "collector:main",
+  "description": "Collects Alibaba Cloud Linux CVE notices from ALAS RSS.",
+  "schedule": "7200",
+  "source": {
+    "publisher": "Alibaba Cloud",
+    "homepage": "https://alas.aliyuncs.com",
+    "feed_url": "https://alas.aliyuncs.com/api/rss/v1/cves/rss.xml"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "阿里云 Linux CVE 通知",
+    "source_order": 75
+  }
+}

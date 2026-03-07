@@ -1,0 +1,22 @@
+{
+  "name": "Aliyun Security Bulletin Collector",
+  "version": "1.0.0",
+  "slug": "aliyun_security",
+  "entrypoint": "collector:main",
+  "description": "Collects security bulletins from the Aliyun bulletin API.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Alibaba Cloud",
+    "homepage": "https://www.aliyun.com",
+    "feed_url": "https://t.aliyun.com/abs/bulletin/bulletinQuery"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "阿里云安全公告",
+    "source_order": 76
+  }
+}
