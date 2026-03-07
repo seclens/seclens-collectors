@@ -177,7 +177,7 @@ python run_collectors.py --profile profiles/default.json
 - `state_file`：调度状态文件（保存 `next_due_at` 等）
 - `default_interval_minutes`：默认周期（分钟）
 - `min_interval_minutes`：最小周期保护（分钟）
-- `schedule_overrides`：插件级覆盖配置
+- `schedule_overrides`：插件级覆盖配置（只在需要覆盖 manifest 默认周期时配置）
 
 ### `schedule_overrides` 子结构
 
@@ -204,8 +204,9 @@ python run_collectors.py --profile profiles/default.json
 同一个插件最终周期按以下优先级确定（高到低）：
 1. 环境变量覆盖：`COLLECTOR_<SLUG>_INTERVAL_MINUTES`
 2. `schedule_overrides.<slug>.interval_minutes`
-3. `collectors/<slug>/config.example.yaml` 中的推荐周期
-4. `default_interval_minutes`
+3. `collectors/<slug>/manifest.json` 的 `schedule`（秒，自动换算为分钟）
+4. `collectors/<slug>/config.example.yaml` 中的推荐周期
+5. `default_interval_minutes`
 
 锚点优先级类似：
 1. `COLLECTOR_<SLUG>_ANCHOR_UTC`

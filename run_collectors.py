@@ -165,6 +165,31 @@ def _parse_interval_from_comment(config_file: Path) -> int | None:
     return None
 
 
+def _parse_manifest_interval_minutes(manifest_file: Path) -> int | None:
+    """Parse manifest.schedule (seconds) and convert it to minutes."""
+    if not manifest_file.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    raw_schedule = manifest.get("schedule")
+    if raw_schedule is None:
+        return None
+
+    try:
+        schedule_seconds = int(str(raw_schedule).strip())
+    except (TypeError, ValueError):
+        return None
+
+    if schedule_seconds <= 0:
+        return None
+    if schedule_seconds % 60 != 0:
+        return None
+    return schedule_seconds // 60
+
+
 def _default_anchor_for_slug(slug: str, interval_minutes: int) -> datetime:
     digest = hashlib.sha1(slug.encode("utf-8")).hexdigest()
     slot = int(digest, 16) % interval_minutes
@@ -215,8 +240,13 @@ def _resolve_schedule(
     interval_source = "default"
     interval = default_interval
 
+    manifest_interval = _parse_manifest_interval_minutes(collector_dir / "manifest.json")
+    if manifest_interval is not None:
+        interval = manifest_interval
+        interval_source = "manifest"
+
     config_interval = _parse_interval_from_comment(collector_dir / "config.example.yaml")
-    if config_interval is not None:
+    if config_interval is not None and manifest_interval is None:
         interval = config_interval
         interval_source = "collector-config"
 
