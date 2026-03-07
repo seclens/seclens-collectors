@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "slug": "cisa_kev_catalog",
   "entrypoint": "collector:main",
-  "description": "Collects CISA Known Exploited Vulnerabilities catalog entries from official JSON feed.",
-  "schedule": "7200",
+  "description": "Collects CISA Known Exploited Vulnerabilities Catalog from official JSON feed.",
+  "schedule": "14400",
   "source": {
     "publisher": "CISA",
     "homepage": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",

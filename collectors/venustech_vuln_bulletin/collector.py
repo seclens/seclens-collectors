@@ -21,11 +21,11 @@ except ModuleNotFoundError:
 SOURCE_SLUG = "venustech_vuln_bulletin"
 SECLENS_URL = os.environ.get("SECLENS_URL", "").rstrip("/")
 SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
-LIST_URL = os.environ.get("VENUSTECH_AQTG_URL", "https://www.venustech.com.cn/new_type/aqtg/")
-BASE_URL = os.environ.get("VENUSTECH_BASE_URL", "https://www.venustech.com.cn")
+LIST_URL = os.environ.get("VENUSTECH_VULN_LIST_URL", "https://www.venustech.com.cn/new_type/aqtg/")
+BASE_URL = "https://www.venustech.com.cn"
 REQUEST_TIMEOUT = 30
-LIMIT = int(os.environ.get("VENUSTECH_AQTG_LIMIT", "30"))
 USER_AGENT = "SeclensCollector/2.0 (venustech_vuln_bulletin)"
+LIMIT = int(os.environ.get("VENUSTECH_VULN_LIMIT", "30"))
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
     SOURCE_SLUG, repo_root=Path(__file__).resolve().parents[2]
 )
@@ -33,72 +33,66 @@ MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(SOURCE_SLUG)
 
-ID_RE = re.compile(r"/new_type/aqtg/([0-9]{8}/[0-9]+\.html)")
-DATE_RE = re.compile(r"/new_type/aqtg/([0-9]{8})/")
+DETAIL_RE = re.compile(r"/new_type/aqtg/\d{8}/\d+\.html")
+DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2}|20\d{6})")
 
 
-def _trim(v: str | None) -> str | None:
-    if not v:
+def _trim(value: str | None) -> str | None:
+    if not value:
         return None
-    v = " ".join(v.split()).strip()
-    return v or None
+    value = " ".join(value.split()).strip()
+    return value or None
 
 
-def fetch_list() -> list[tuple[str, str, str, str | None]]:
+def fetch_list() -> list[tuple[str, str]]:
     resp = requests.get(LIST_URL, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
+    rows: list[tuple[str, str]] = []
     seen: set[str] = set()
-    out: list[tuple[str, str, str, str | None]] = []
-
-    for a in soup.select('a[href*="/new_type/aqtg/"][href$=".html"]'):
+    for a in soup.select('a[href*="/new_type/aqtg/"]'):
         href = _trim(a.get("href"))
-        if not href:
+        if not href or not DETAIL_RE.search(href):
             continue
-        m = ID_RE.search(href)
-        if not m:
+        full = urljoin(BASE_URL, href)
+        if full in seen:
             continue
-        external_id = m.group(1)
-        if external_id in seen:
-            continue
-        seen.add(external_id)
-
-        title = _trim(a.get_text(" ", strip=True)) or external_id
-        full_url = urljoin(BASE_URL, href)
-        dm = DATE_RE.search(href)
-        pub = None
-        if dm:
-            d = dm.group(1)
-            pub = parse_datetime(f"{d[:4]}-{d[4:6]}-{d[6:8]}T00:00:00+08:00")
-
-        out.append((external_id, title, full_url, pub))
-        if len(out) >= LIMIT:
+        seen.add(full)
+        title = _trim(a.get_text(" ", strip=True)) or "(untitled)"
+        rows.append((full, title))
+        if len(rows) >= LIMIT:
             break
+    return rows
 
-    return out
 
-
-def fetch_detail_summary(url: str) -> str | None:
+def fetch_detail(url: str) -> tuple[str | None, str | None]:
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except Exception as exc:
         logger.warning("detail fetch failed for %s: %s", url, exc)
-        return None
+        return None, None
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    meta_desc = soup.find("meta", attrs={"name": "description"})
-    if meta_desc and meta_desc.get("content"):
-        return _trim(meta_desc.get("content"))
+    desc = None
+    meta = soup.find("meta", attrs={"name": "description"})
+    if meta and meta.get("content"):
+        desc = _trim(meta.get("content"))
 
-    text_node = soup.select_one(".news_text")
-    if text_node:
-        return _trim(text_node.get_text(" ", strip=True))
-    return None
+    text = soup.get_text(" ", strip=True)
+    m = DATE_RE.search(text)
+    published_at = None
+    if m:
+        raw = m.group(1)
+        if len(raw) == 8 and raw.isdigit():
+            raw = f"{raw[0:4]}-{raw[4:6]}-{raw[6:8]}"
+        published_at = parse_datetime(raw + " 00:00:00", default_tz="Asia/Shanghai")
+    return desc, published_at
 
 
-def normalize(external_id: str, title: str, origin_url: str, published_at: str | None, summary: str | None) -> dict:
+def normalize(origin_url: str, title: str, summary: str | None, published_at: str | None) -> dict:
+    external_id = origin_url.rsplit("/", 1)[-1].replace(".html", "")
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
@@ -116,8 +110,8 @@ def normalize(external_id: str, title: str, origin_url: str, published_at: str |
         },
         "fetched_at": now_utc_iso(),
         "labels": ["source:venustech", "type:vuln-bulletin"],
-        "topics": ["vulnerability", "security-advisory", "vendor-alert"],
-        "extra": {"bulletin_id": external_id},
+        "topics": ["vulnerability", "vendor-advisory"],
+        "extra": {},
     }
 
 
@@ -142,17 +136,14 @@ def main() -> None:
         raise SystemExit("SECLENS_URL and SECLENS_TOKEN are required")
 
     rows = fetch_list()
-    logger.info("Fetched %d entries from Venustech list", len(rows))
-
+    logger.info("Fetched %d list entries", len(rows))
     bulletins = []
-    for external_id, title, url, published_at in rows:
-        summary = fetch_detail_summary(url)
-        bulletins.append(normalize(external_id, title, url, published_at, summary))
+    for url, title in rows:
+        summary, published_at = fetch_detail(url)
+        bulletins.append(normalize(url, title, summary, published_at))
 
     if not bulletins:
-        logger.info("No bulletins to push")
         return
-
     result = push(bulletins)
     logger.info("Push done: accepted=%s duplicates=%s", result.get("accepted"), result.get("duplicates"))
 

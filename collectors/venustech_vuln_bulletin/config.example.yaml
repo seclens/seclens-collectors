@@ -1,4 +1,3 @@
 seclens_url: "https://seclens.info"
 seclens_token: "slct_xxx"
-venustech_aqtg_url: "https://www.venustech.com.cn/new_type/aqtg/"
-venustech_aqtg_limit: 30
+venustech_vuln_list_url: "https://www.venustech.com.cn/new_type/aqtg/"

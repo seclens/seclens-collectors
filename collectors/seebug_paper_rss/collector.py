@@ -19,7 +19,7 @@ except ModuleNotFoundError:
 SOURCE_SLUG = "seebug_paper_rss"
 SECLENS_URL = os.environ.get("SECLENS_URL", "").rstrip("/")
 SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
-RSS_URL = os.environ.get("SEEBUG_PAPER_RSS_URL", "https://paper.seebug.org/rss/")
+FEED_URL = os.environ.get("SEEBUG_PAPER_RSS_URL", "https://paper.seebug.org/rss/")
 REQUEST_TIMEOUT = 30
 USER_AGENT = "SeclensCollector/2.0 (seebug_paper_rss)"
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
@@ -30,19 +30,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(SOURCE_SLUG)
 
 
-def _trim(v: str | None) -> str | None:
-    if not v:
+def _trim(value: str | None) -> str | None:
+    if not value:
         return None
-    v = " ".join(v.split()).strip()
-    return v or None
+    value = " ".join(value.split()).strip()
+    return value or None
 
 
 def fetch_items() -> list[ET.Element]:
-    resp = requests.get(
-        RSS_URL,
-        timeout=REQUEST_TIMEOUT,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/rss+xml, application/xml"},
-    )
+    resp = requests.get(FEED_URL, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
     resp.raise_for_status()
     root = ET.fromstring(resp.content)
     channel = root.find("channel")
@@ -52,15 +48,15 @@ def fetch_items() -> list[ET.Element]:
 def normalize(item: ET.Element) -> dict:
     title = _trim(item.findtext("title")) or "(untitled)"
     link = _trim(item.findtext("link"))
-    description = _trim(item.findtext("description"))
     guid = _trim(item.findtext("guid"))
-    pub = parse_datetime(item.findtext("pubDate"))
-    external_id = guid or link or title
+    description = _trim(item.findtext("description"))
+    pub_date = parse_datetime(item.findtext("pubDate"))
 
+    ext = guid or link or title
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
-            "external_id": external_id,
+            "external_id": ext,
             "origin_url": link,
             "manifest": MANIFEST,
             "manifest_hash": MANIFEST_HASH,
@@ -69,12 +65,12 @@ def normalize(item: ET.Element) -> dict:
         "content": {
             "title": title,
             "summary": description,
-            "published_at": pub,
+            "published_at": pub_date,
             "language": "zh",
         },
         "fetched_at": now_utc_iso(),
         "labels": ["source:seebug", "type:paper"],
-        "topics": ["security-research", "paper"],
+        "topics": ["security-research", "threat-intel"],
         "extra": {"guid": guid},
     }
 
@@ -100,10 +96,9 @@ def main() -> None:
         raise SystemExit("SECLENS_URL and SECLENS_TOKEN are required")
 
     items = fetch_items()
-    logger.info("Fetched %d items from Seebug paper RSS", len(items))
     bulletins = [normalize(i) for i in items]
+    logger.info("Fetched %d items from Seebug Paper RSS", len(bulletins))
     if not bulletins:
-        logger.info("No bulletins to push")
         return
 
     result = push(bulletins)

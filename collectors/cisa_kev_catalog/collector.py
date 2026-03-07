@@ -22,13 +22,9 @@ JSON_FEED_URL = os.environ.get(
     "CISA_KEV_JSON_FEED_URL",
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
 )
-FALLBACK_JSON_FEED_URL = os.environ.get("CISA_KEV_JSON_FEED_FALLBACK_URL", "").strip()
-CATALOG_URL = os.environ.get(
-    "CISA_KEV_CATALOG_URL",
-    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-)
-REQUEST_TIMEOUT = 40
+REQUEST_TIMEOUT = 45
 USER_AGENT = "SeclensCollector/2.0 (cisa_kev_catalog)"
+BATCH_SIZE = int(os.environ.get("CISA_KEV_BATCH_SIZE", "200"))
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
     SOURCE_SLUG, repo_root=Path(__file__).resolve().parents[2]
 )
@@ -37,68 +33,56 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(SOURCE_SLUG)
 
 
-def _trim(v: str | None) -> str | None:
-    if not v:
+def _trim(value: str | None) -> str | None:
+    if not value:
         return None
-    v = " ".join(v.split()).strip()
-    return v or None
+    value = " ".join(value.split()).strip()
+    return value or None
 
 
-def _fetch_json(url: str) -> dict:
+def fetch_items() -> list[dict]:
     resp = requests.get(
-        url,
+        JSON_FEED_URL,
         timeout=REQUEST_TIMEOUT,
         headers={
             "User-Agent": USER_AGENT,
             "Accept": "application/json, text/plain, */*",
-            "Referer": CATALOG_URL,
         },
     )
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    vulns = data.get("vulnerabilities", [])
+    if not isinstance(vulns, list):
+        return []
+    return vulns
 
 
-def fetch_vulnerabilities() -> tuple[list[dict], dict]:
-    errors: list[str] = []
-    urls = [JSON_FEED_URL]
-    if FALLBACK_JSON_FEED_URL:
-        urls.append(FALLBACK_JSON_FEED_URL)
-
-    for url in urls:
-        try:
-            data = _fetch_json(url)
-            vulns = data.get("vulnerabilities", []) or []
-            data.setdefault("_feed_url", url)
-            return vulns, data
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{url}: {exc}")
-
-    raise RuntimeError("Failed to fetch CISA KEV JSON feed. " + " | ".join(errors))
-
-
-def normalize(item: dict, catalog_meta: dict) -> dict:
-    cve_id = _trim(item.get("cveID")) or _trim(item.get("cveId")) or "unknown"
+def normalize(item: dict) -> dict:
+    cve = _trim(item.get("cveID")) or _trim(item.get("cveId")) or ""
     vendor = _trim(item.get("vendorProject"))
     product = _trim(item.get("product"))
-    title = f"{cve_id} - {vendor or ''} {product or ''}".strip(" -")
+    vuln_name = _trim(item.get("vulnerabilityName"))
+    notes = _trim(item.get("notes"))
 
-    short_desc = _trim(item.get("shortDescription"))
-    required_action = _trim(item.get("requiredAction"))
-    due_date = _trim(item.get("dueDate"))
-    date_added = parse_datetime(item.get("dateAdded"))
-
-    summary_parts = [x for x in [short_desc, f"Required Action: {required_action}" if required_action else None, f"Due Date: {due_date}" if due_date else None] if x]
+    title = vuln_name or cve or "CISA KEV Vulnerability"
+    summary_parts = [x for x in [vendor, product, notes] if x]
     summary = " | ".join(summary_parts) if summary_parts else None
 
-    labels = ["source:cisa", "type:kev"]
+    published_at = parse_datetime(item.get("dateAdded"), default_tz="UTC")
+    due_date = parse_datetime(item.get("dueDate"), default_tz="UTC")
+
+    ext = cve or f"kev-{vendor}-{product}-{item.get('dateAdded')}"
+    origin_url = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+
+    labels = ["source:cisa", "catalog:kev", "type:vulnerability"]
     if _trim(item.get("knownRansomwareCampaignUse")):
-        labels.append(f"ransomware:{item.get('knownRansomwareCampaignUse')}")
+        labels.append(f"ransomware:{_trim(item.get('knownRansomwareCampaignUse')).lower()}")
 
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
-            "external_id": cve_id,
-            "origin_url": CATALOG_URL,
+            "external_id": ext,
+            "origin_url": origin_url,
             "manifest": MANIFEST,
             "manifest_hash": MANIFEST_HASH,
             "manifest_version": MANIFEST_VERSION,
@@ -106,51 +90,54 @@ def normalize(item: dict, catalog_meta: dict) -> dict:
         "content": {
             "title": title,
             "summary": summary,
-            "published_at": date_added,
+            "published_at": published_at,
             "language": "en",
         },
         "fetched_at": now_utc_iso(),
         "labels": labels,
-        "topics": ["vulnerability", "kev", "exploited-in-the-wild"],
+        "topics": ["vulnerability", "known-exploited"],
         "extra": {
-            "vendorProject": vendor,
+            "cve_id": cve,
+            "vendor_project": vendor,
             "product": product,
-            "vulnerabilityName": _trim(item.get("vulnerabilityName")),
-            "dateAdded": _trim(item.get("dateAdded")),
-            "dueDate": due_date,
-            "requiredAction": required_action,
-            "knownRansomwareCampaignUse": _trim(item.get("knownRansomwareCampaignUse")),
-            "notes": _trim(item.get("notes")),
-            "json_feed_url": catalog_meta.get("_feed_url") or JSON_FEED_URL,
-            "catalog_count": catalog_meta.get("count") or len(catalog_meta.get("vulnerabilities", []) or []),
+            "required_action": _trim(item.get("requiredAction")),
+            "known_ransomware_campaign_use": _trim(item.get("knownRansomwareCampaignUse")),
+            "due_date": due_date,
+            "raw_date_added": item.get("dateAdded"),
         },
     }
 
 
 def push(bulletins: list[dict]) -> dict:
     endpoint = f"{SECLENS_URL}/v1/ingest/bulletins"
-    resp = requests.post(
-        endpoint,
-        json=bulletins,
-        timeout=REQUEST_TIMEOUT,
-        headers={
-            "Authorization": f"Bearer {SECLENS_TOKEN}",
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
-    )
-    resp.raise_for_status()
-    return resp.json()
+    headers = {
+        "Authorization": f"Bearer {SECLENS_TOKEN}",
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    accepted = 0
+    duplicates = 0
+
+    for i in range(0, len(bulletins), BATCH_SIZE):
+        chunk = bulletins[i : i + BATCH_SIZE]
+        resp = requests.post(endpoint, json=chunk, timeout=REQUEST_TIMEOUT, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("Push failed for batch %s-%s: %s %s", i, i + len(chunk), resp.status_code, resp.text[:400])
+            resp.raise_for_status()
+        payload = resp.json()
+        accepted += int(payload.get("accepted", 0) or 0)
+        duplicates += int(payload.get("duplicates", 0) or 0)
+
+    return {"accepted": accepted, "duplicates": duplicates}
 
 
 def main() -> None:
     if not SECLENS_URL or not SECLENS_TOKEN:
         raise SystemExit("SECLENS_URL and SECLENS_TOKEN are required")
 
-    vulns, meta = fetch_vulnerabilities()
-    logger.info("Fetched %d vulnerabilities from CISA KEV JSON", len(vulns))
-    bulletins = [normalize(v, meta) for v in vulns if v.get("cveID") or v.get("cveId")]
-
+    items = fetch_items()
+    logger.info("Fetched %d KEV entries", len(items))
+    bulletins = [normalize(i) for i in items if isinstance(i, dict)]
     if not bulletins:
         logger.info("No bulletins to push")
         return
