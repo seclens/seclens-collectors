@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ def parse_atlassian_date(date_str: str) -> datetime | None:
     except ValueError:
         try:
             dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.000+0000')
-            return dt.replace(tzinfo=UTC)
+            return dt.replace(tzinfo=timezone.utc)  # noqa: UP017
         except ValueError:
             LOGGER.warning(f"Could not parse date: {date_str}")
             return None
@@ -232,14 +232,14 @@ class AtlassianSecurityCollector:
 
     def filter_recent_cves(self, cve_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter CVEs published within the configured time window."""
-        cutoff_date = datetime.now(UTC) - timedelta(days=self.days_filter)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.days_filter)  # noqa: UP017
         recent_cves = []
 
         for cve in cve_list:
             publish_date = cve.get('publish_date')
             if publish_date:
                 if publish_date.tzinfo is None:
-                    publish_date = publish_date.replace(tzinfo=UTC)
+                    publish_date = publish_date.replace(tzinfo=timezone.utc)  # noqa: UP017
                 if publish_date >= cutoff_date:
                     recent_cves.append(cve)
 
