@@ -17,6 +17,7 @@ import os
 import re
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
@@ -47,6 +48,7 @@ REQUEST_HEADERS = {
 }
 DEFAULT_TOPIC = "policy-compliance"
 PAGE_SIZE = 10
+STATE_FILE_NAME = ".cursor"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +67,23 @@ def _clean_text(value: str | None) -> str | None:
         return None
     text = value.strip()
     return text or None
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    path = _state_file_path()
+    path.write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +258,27 @@ def main():
         sys.exit(1)
 
     items = fetch_list()
+    if not items:
+        logger.info("No list items fetched")
+        return
+
+    newest_cursor = items[0]["detail_url"]
+    cursor = load_cursor()
+    if cursor:
+        fresh_items: list[dict] = []
+        for item in items:
+            if item["detail_url"] == cursor:
+                break
+            fresh_items.append(item)
+        logger.info("Cursor loaded: %s, %d new candidate items", cursor, len(fresh_items))
+        items = fresh_items
+    else:
+        logger.info("No cursor found, treating current page as initial batch")
+
+    if not items:
+        logger.info("No new items since cursor, skip push")
+        return
+
     bulletins = []
     for item in items:
         bulletin = normalize(item)
@@ -250,6 +290,7 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
+    save_cursor(newest_cursor)
     print(
         f"Done: {len(bulletins)} fetched, "
         f"{result.get('accepted', 0)} accepted, "
