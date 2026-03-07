@@ -1,0 +1,22 @@
+{
+  "name": "FreeBuf Community RSS Collector",
+  "version": "1.0.0",
+  "slug": "freebuf_community",
+  "entrypoint": "collector:main",
+  "description": "Collects security community articles from FreeBuf RSS feed.",
+  "schedule": "1800",
+  "source": {
+    "publisher": "FreeBuf",
+    "homepage": "https://www.freebuf.com/",
+    "feed_url": "https://www.freebuf.com/feed"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "community_news",
+    "group_title": "社区情报",
+    "group_description": "来自安全社区与技术媒体的情报与观察。",
+    "group_order": 30,
+    "source_title": "FreeBuf 社区",
+    "source_order": 15
+  }
+}
