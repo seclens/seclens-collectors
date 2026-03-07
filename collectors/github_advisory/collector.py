@@ -20,12 +20,16 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -39,6 +43,7 @@ REQUEST_TIMEOUT = 30
 DEFAULT_LIMIT = 30  # Default items per collection run
 CACHE_FILE_NAME = ".cursor"
 MAX_CACHE_SIZE = 200  # Cache the latest 200 GHSA IDs
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,10 +130,10 @@ class GitHubAdvisoryCollector:
         """Save GHSA IDs to cache, keeping only the latest MAX_CACHE_SIZE items."""
         ids_list = list(ghsa_ids)[-MAX_CACHE_SIZE:]
         with self.cache_path.open("w", encoding="utf-8") as f:
-            json.dump({"ghsa_ids": ids_list, "updated_at": datetime.now(timezone.utc).isoformat()}, f, indent=2)
+            json.dump({"ghsa_ids": ids_list, "updated_at": datetime.now(timezone.utc).isoformat()}, f, indent=2)  # noqa: UP017
 
     # --- Fetch ----------------------------------------------------------
-    def fetch_advisories(self, per_page: int = 30, max_pages: int = 3) -> List[Advisory]:
+    def fetch_advisories(self, per_page: int = 30, max_pages: int = 3) -> list[Advisory]:
         """
         Fetch advisories from GitHub API using cursor-based pagination.
 
@@ -142,7 +147,7 @@ class GitHubAdvisoryCollector:
             "direction": "desc",
         }
 
-        fetched_at = datetime.now(timezone.utc)
+        fetched_at = datetime.now(timezone.utc)  # noqa: UP017
         page_count = 0
 
         while url and page_count < max_pages:
@@ -364,6 +369,9 @@ class GitHubAdvisoryCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": advisory.ghsa_id,
                 "origin_url": advisory.html_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -490,11 +498,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_processed']} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates, "
-        f"{stats['items_skipped_cache']} skipped (cached)"
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s skipped_cache=%d",
+        stats["items_processed"],
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+        stats["items_skipped_cache"],
     )
 
 

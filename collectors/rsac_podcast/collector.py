@@ -28,8 +28,13 @@ from bs4 import BeautifulSoup
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -52,6 +57,7 @@ REQUEST_HEADERS = {
 CACHE_FILE = Path(__file__).parent / ".cursor"
 CACHE_SIZE_LIMIT = 100
 DEFAULT_LIMIT = 20
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,7 +122,7 @@ class CacheManager:
     def _load(self) -> None:
         if self.cache_file.exists():
             try:
-                with open(self.cache_file, "r", encoding="utf-8") as f:
+                with open(self.cache_file, encoding="utf-8") as f:
                     self.cache = json.load(f)
                 logger.info("Loaded %d items from cache", len(self.cache))
             except Exception as e:
@@ -138,7 +144,7 @@ class CacheManager:
         return external_id in self.cache
 
     def add(self, external_id: str) -> None:
-        self.cache[external_id] = datetime.now(timezone.utc).isoformat()
+        self.cache[external_id] = datetime.now(timezone.utc).isoformat()  # noqa: UP017
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +282,9 @@ class RSACPodcastCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": external_id,
                 "origin_url": track_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -403,11 +412,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_created']} new, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates, "
-        f"{stats['items_skipped_cache']} skipped (cached)"
+    logger.info(
+        "Done: created=%d accepted=%s duplicates=%s skipped_cache=%d",
+        stats["items_created"],
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+        stats["items_skipped_cache"],
     )
 
 

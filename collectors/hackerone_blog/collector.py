@@ -12,18 +12,24 @@ Schedule: recommended every 6 hours (21600s)
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
-import json
 import unicodedata
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Sequence
+from pathlib import Path
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -44,6 +50,8 @@ REQUEST_HEADERS = {
     "User-Agent": USER_AGENT,
 }
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +109,22 @@ def _slug_from_url(url: str | None) -> str | None:
         return None
     slug = path.rsplit("/", 1)[-1]
     return slug or None
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +281,7 @@ class HackerOneBlogCollector:
 
         published_time = None
         authors: list[str] = []
-        taxonomy: Dict[str, list[str]] = {}
+        taxonomy: dict[str, list[str]] = {}
         page_data = self._extract_page_data(soup)
         if page_data:
             published_time = page_data.get("publishedDate") or published_time
@@ -396,6 +420,9 @@ def normalize(entry: dict[str, Any]) -> dict:
             "source_slug": SLUG,
             "external_id": external_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -454,6 +481,26 @@ def main():
 
     collector = HackerOneBlogCollector()
     entries = collector.fetch(FetchParams())
+    latest_cursor = None
+    if entries:
+        listing = entries[0].get("listing") or {}
+        latest_cursor = _slug_from_url(listing.get("url")) or listing.get("url")
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered: list[dict[str, Any]] = []
+        for entry in entries:
+            listing = entry.get("listing") or {}
+            cursor_value = _slug_from_url(listing.get("url")) or listing.get("url") or ""
+            if cursor_value == previous_cursor:
+                break
+            filtered.append(entry)
+        entries = filtered
+        logger.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(entries),
+        )
+
     bulletins = []
     for entry in entries:
         try:
@@ -466,7 +513,14 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    if latest_cursor:
+        save_cursor(latest_cursor)
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":
