@@ -294,6 +294,12 @@ def normalize(entry: FeedEntry) -> dict:
     """Convert a FeedEntry to a SecLens bulletin dict."""
     origin_url = entry.link if _is_valid_url(entry.link) else None
     external_id = _derive_external_id(entry.guid, origin_url, entry.title)
+    if external_id:
+        external_id = external_id[:512]
+    title = (entry.title or "").strip()
+    if not title:
+        title = external_id or origin_url or "oracle-security-alert"
+    title = title[:500]
 
     article_text = _fetch_article_body(origin_url)
     summary = None
@@ -321,7 +327,7 @@ def normalize(entry: FeedEntry) -> dict:
             "manifest_version": MANIFEST_VERSION,
         },
         "content": {
-            "title": entry.title,
+            "title": title,
             "summary": summary,
             "body_text": article_text or entry.description,
             "published_at": entry.published_at,
