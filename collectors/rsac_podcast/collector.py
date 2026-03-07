@@ -307,7 +307,15 @@ class RSACPodcastCollector:
 
     def collect(self, limit: int | None = DEFAULT_LIMIT) -> tuple[list[dict], dict]:
         """Collect podcast episodes."""
-        track_links = self.fetch_track_links()
+        try:
+            track_links = self.fetch_track_links()
+        except requests.RequestException as exc:
+            logger.error("Failed to fetch track listing: %s", exc)
+            return [], {
+                "items_processed": 0,
+                "items_created": 0,
+                "items_skipped_cache": 0,
+            }
 
         if limit:
             track_links = track_links[:limit]

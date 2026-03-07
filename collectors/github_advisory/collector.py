@@ -43,6 +43,7 @@ REQUEST_TIMEOUT = 30
 DEFAULT_LIMIT = 30  # Default items per collection run
 CACHE_FILE_NAME = ".cursor"
 MAX_CACHE_SIZE = 200  # Cache the latest 200 GHSA IDs
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
@@ -111,6 +112,8 @@ class GitHubAdvisoryCollector:
                 "X-GitHub-Api-Version": "2022-11-28",
             }
         )
+        if GITHUB_TOKEN:
+            self.session.headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
     # --- Cache helpers --------------------------------------------------
     def load_cache(self) -> set[str]:
