@@ -18,15 +18,21 @@ import re
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Sequence
+from pathlib import Path
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -40,6 +46,8 @@ FEED_URL = os.environ.get(
 SOURCE_SLUG = "amazon_linux_al2023"
 USER_AGENT = "SeclensCollector/2.0 (amazon_linux_al2023)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -83,8 +91,8 @@ def _parse_pubdate(value: str | None) -> datetime | None:
     except (TypeError, ValueError):
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=timezone.utc)  # noqa: UP017
+    return dt.astimezone(timezone.utc)  # noqa: UP017
 
 
 def _extract_cves(text: str | None) -> list[str]:
@@ -103,6 +111,22 @@ def _parse_title(title: str | None) -> tuple[str | None, str | None, str | None]
     severity = match.group("severity")
     component = match.group("component")
     return bulletin, severity, component
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +229,9 @@ def normalize(entry: dict) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": str(external_id),
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": entry.get("title") or external_id,
@@ -263,6 +290,28 @@ def main():
 
     collector = AmazonLinux2023Collector()
     entries = collector.fetch(FetchParams(feed_url=FEED_URL))
+    if not entries:
+        logger.info("No feed items fetched")
+        return
+
+    newest_cursor = str(entries[0].get("bulletin_id") or entries[0].get("link") or "")
+    cursor = load_cursor()
+    if cursor:
+        fresh_entries: list[dict] = []
+        for entry in entries:
+            entry_cursor = str(entry.get("bulletin_id") or entry.get("link") or "")
+            if entry_cursor == cursor:
+                break
+            fresh_entries.append(entry)
+        logger.info("Cursor loaded: %s, %d new candidate items", cursor, len(fresh_entries))
+        entries = fresh_entries
+    else:
+        logger.info("No cursor found, treating current feed as initial batch")
+
+    if not entries:
+        logger.info("No new items since cursor, skip push")
+        return
+
     bulletins = []
     for entry in entries:
         try:
@@ -275,7 +324,14 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    if newest_cursor:
+        save_cursor(newest_cursor)
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,22 @@
+{
+  "name": "Amazon Linux AL2023 Security Advisory Collector",
+  "version": "1.0.0",
+  "slug": "amazon_linux_al2023",
+  "entrypoint": "collector:main",
+  "description": "Collects Amazon Linux 2023 ALAS security advisories from official RSS.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Amazon Web Services",
+    "homepage": "https://alas.aws.amazon.com/",
+    "feed_url": "https://alas.aws.amazon.com/AL2023/alas.rss"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Amazon Linux AL2023 公告",
+    "source_order": 62
+  }
+}
