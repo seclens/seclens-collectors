@@ -1,0 +1,22 @@
+{
+  "name": "Chrome Stable Updates Collector",
+  "version": "1.0.0",
+  "slug": "chrome_stable_updates",
+  "entrypoint": "collector:main",
+  "description": "Collects Chrome stable channel release updates from the official blog.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "Google",
+    "homepage": "https://chromereleases.googleblog.com",
+    "feed_url": "https://chromereleases.googleblog.com/search/label/Stable%20updates"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Chrome 稳定版更新",
+    "source_order": 67
+  }
+}

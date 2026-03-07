@@ -1,0 +1,22 @@
+{
+  "name": "Red Hat Security Advisory Collector",
+  "version": "1.0.0",
+  "slug": "redhat_advisory",
+  "entrypoint": "collector:main",
+  "description": "Collects Red Hat security advisories from the official Hydra API.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Red Hat",
+    "homepage": "https://access.redhat.com/security/security-updates/security-advisories",
+    "feed_url": "https://access.redhat.com/hydra/rest/search/kcs"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Red Hat 安全公告",
+    "source_order": 68
+  }
+}

@@ -15,15 +15,20 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable, Sequence
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -34,6 +39,8 @@ SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 SOURCE_SLUG = "redhat_advisory"
 USER_AGENT = "SeclensCollector/2.0 (redhat_advisory)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 API_URL = "https://access.redhat.com/hydra/rest/search/kcs"
 DEFAULT_ROWS = 20
@@ -78,6 +85,22 @@ class FetchParams:
     """Parameters controlling Red Hat advisory API queries."""
     start: int = 0
     rows: int = DEFAULT_ROWS
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +221,9 @@ def normalize(item: dict) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": external_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": item.get("allTitle") or summary or (external_id or ""),
@@ -258,6 +284,22 @@ def main():
         sys.exit(1)
 
     docs = fetch_advisories()
+    latest_cursor = str(docs[0].get("id")) if docs and docs[0].get("id") else None
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered_docs: list[dict] = []
+        for doc in docs:
+            cursor_value = str(doc.get("id") or "")
+            if cursor_value == previous_cursor:
+                break
+            filtered_docs.append(doc)
+        docs = filtered_docs
+        logger.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(docs),
+        )
+
     bulletins: list[dict] = []
     for doc in docs:
         try:
@@ -270,10 +312,13 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if latest_cursor:
+        save_cursor(latest_cursor)
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
