@@ -1,0 +1,22 @@
+{
+  "name": "Tencent Cloud Security Announcement Collector",
+  "version": "1.0.0",
+  "slug": "tencent_cloud_security",
+  "entrypoint": "collector:main",
+  "description": "Collects Tencent Cloud security announcements.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "Tencent Cloud",
+    "homepage": "https://cloud.tencent.com/announce",
+    "feed_url": "https://cloud.tencent.com/announce/?categorys=21"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "腾讯云安全公告",
+    "source_order": 40
+  }
+}

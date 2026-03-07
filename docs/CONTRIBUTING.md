@@ -20,6 +20,7 @@ Create a new directory under `collectors/`:
 ```
 collectors/your_source_name/
   collector.py            # Main collector script
+  manifest.json           # Source metadata for server-side registry sync
   requirements.txt        # Python dependencies
   config.example.yaml     # Configuration template
   README.md               # Source description and usage
@@ -39,11 +40,17 @@ Minimal example:
 ```python
 """My Source collector."""
 import os
+import sys
 from datetime import datetime, timezone
 import requests
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from shared.manifest import load_manifest_for_slug
+
 SECLENS_URL = os.environ.get("SECLENS_URL", "https://seclens.example.com")
 SECLENS_TOKEN = os.environ["SECLENS_TOKEN"]
+SOURCE_SLUG = "your_source_name"
+manifest, manifest_hash, manifest_version = load_manifest_for_slug(SOURCE_SLUG)
 
 def fetch():
     """Fetch data from source. Return raw items."""
@@ -58,6 +65,9 @@ def normalize(item):
             "source_slug": "your_source_name",
             "external_id": item["id"],
             "origin_url": item.get("url"),
+            "manifest": manifest,
+            "manifest_hash": manifest_hash,
+            "manifest_version": manifest_version,
         },
         "content": {
             "title": item["title"],
@@ -91,6 +101,8 @@ if __name__ == "__main__":
     else:
         print("No new items found")
 ```
+
+`manifest`, `manifest_hash`, and `manifest_version` are strongly recommended so the server can auto-sync source metadata and version history.
 
 ### 4. Configuration
 

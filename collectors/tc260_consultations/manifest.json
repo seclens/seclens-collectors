@@ -1,0 +1,22 @@
+{
+  "name": "TC260 Consultations Collector",
+  "version": "1.0.0",
+  "slug": "tc260_consultations",
+  "entrypoint": "collector:main",
+  "description": "Collects public consultation notices from TC260.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "全国网络安全标准化技术委员会",
+    "homepage": "https://www.tc260.org.cn/",
+    "feed_url": "https://www.tc260.org.cn/front/bzzqyjList.html"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "policy_standards",
+    "group_title": "政策与标准",
+    "group_description": "标准征求意见、政策草案与合规相关信息。",
+    "group_order": 20,
+    "source_title": "TC260 标准征求意见",
+    "source_order": 20
+  }
+}

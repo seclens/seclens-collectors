@@ -16,10 +16,17 @@ import logging
 import os
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 import requests
+
+try:
+    from shared.manifest import load_manifest_for_slug
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -33,6 +40,10 @@ FEED_URL = os.environ.get(
 SOURCE_SLUG = "the_hacker_news"
 USER_AGENT = "SeclensCollector/2.0 (the_hacker_news)"
 REQUEST_TIMEOUT = 30
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
+    SOURCE_SLUG,
+    repo_root=Path(__file__).resolve().parents[2],
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,7 +105,7 @@ def _parse_pub_date(raw: str | None) -> str | None:
     try:
         dt = parsedate_to_datetime(raw.strip())
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.isoformat()
     except Exception:
         return None
@@ -125,6 +136,9 @@ def normalize(item: ET.Element) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": external_id,
             "origin_url": link,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -133,7 +147,7 @@ def normalize(item: ET.Element) -> dict:
             "published_at": published_at,
             "language": "en",
         },
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": datetime.now(UTC).isoformat(),
         "labels": [f"category:{c.lower()}" for c in categories],
         "topics": ["security-news"],
         "extra": {
@@ -190,7 +204,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

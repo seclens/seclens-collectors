@@ -1,0 +1,22 @@
+{
+  "name": "Adobe Security Bulletin Collector",
+  "version": "1.0.1",
+  "slug": "adobe_security",
+  "entrypoint": "collector:main",
+  "description": "Collects Adobe Product Security advisories from the Adobe PSIRT portal.",
+  "schedule": "28800",
+  "source": {
+    "publisher": "Adobe",
+    "homepage": "https://helpx.adobe.com/security.html",
+    "feed_url": "https://helpx.adobe.com/security/Home.html"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Adobe 安全公告",
+    "source_order": 45
+  }
+}

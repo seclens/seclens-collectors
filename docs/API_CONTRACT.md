@@ -29,7 +29,10 @@ Tokens are issued by the SecLens server administrator. Each token may be restric
   "source": {
     "source_slug": "string (required)",
     "external_id": "string (optional, recommended)",
-    "origin_url": "string (optional, valid URL)"
+    "origin_url": "string (optional, valid URL)",
+    "manifest": {"object (optional, recommended)"},
+    "manifest_hash": "string (optional, recommended)",
+    "manifest_version": "string (optional, recommended)"
   },
   "content": {
     "title": "string (required, max 500 chars)",
@@ -56,6 +59,9 @@ Tokens are issued by the SecLens server administrator. Each token may be restric
 | `source_slug` | string | Yes | Unique identifier for this data source. Must match the slug registered on the server. Examples: `the_hacker_news`, `cnnvd_vulnerability` |
 | `external_id` | string | No (recommended) | A stable unique ID from the original source. Used for deduplication together with `source_slug`. Examples: article URL, CVE ID, advisory number |
 | `origin_url` | string | No | The canonical URL of the original bulletin |
+| `manifest` | object | No (recommended) | Collector manifest metadata (name/version/ui/source info). Sent inline for server-side source registry sync |
+| `manifest_hash` | string | No (recommended) | SHA-256 digest of canonicalized `manifest` JSON |
+| `manifest_version` | string | No (recommended) | Manifest semantic version (usually same as `manifest.version`) |
 
 #### content (required)
 
@@ -111,6 +117,14 @@ The server deduplicates based on `(source_slug, external_id)`. If a bulletin wit
 
 **Important:** Always provide a stable `external_id` to avoid creating duplicate entries.
 
+## Source Registry Sync
+
+When `source.manifest` is present, server will upsert source metadata by `source_slug`.
+
+- If `manifest_hash` is unchanged, server updates last-seen metadata only.
+- If `manifest_hash` changes, server promotes/creates a new active source version.
+- If manifest fields are omitted, ingest remains backward-compatible.
+
 ## Limits
 
 | Limit | Value |
@@ -136,6 +150,13 @@ bulletins = [
             "source_slug": "my_source",
             "external_id": "article-123",
             "origin_url": "https://example.com/article/123",
+            "manifest": {
+                "name": "My Source Collector",
+                "version": "1.0.0",
+                "slug": "my_source"
+            },
+            "manifest_hash": "d34db33f...",
+            "manifest_version": "1.0.0",
         },
         "content": {
             "title": "Critical RCE in Example Product",
@@ -165,7 +186,13 @@ curl -X POST https://seclens.example.com/v1/ingest/bulletins \
   -H "Authorization: Bearer your-api-token" \
   -H "Content-Type: application/json" \
   -d '[{
-    "source": {"source_slug": "my_source", "external_id": "123"},
+    "source": {
+      "source_slug": "my_source",
+      "external_id": "123",
+      "manifest": {"name": "My Source Collector", "version": "1.0.0", "slug": "my_source"},
+      "manifest_hash": "d34db33f...",
+      "manifest_version": "1.0.0"
+    },
     "content": {"title": "Test Bulletin", "summary": "Testing..."}
   }]'
 ```

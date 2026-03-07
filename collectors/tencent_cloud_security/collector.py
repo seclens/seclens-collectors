@@ -17,17 +17,22 @@ import logging
 import os
 import re
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterable, List, Sequence
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -44,6 +49,7 @@ DETAIL_URL_TEMPLATE = "https://cloud.tencent.com/announce/detail/{announce_id}"
 DEFAULT_LIMIT = 20
 STATE_FILE_NAME = ".cursor"
 CHINA_TZ = timezone(timedelta(hours=8))
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -103,7 +109,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
     try:
         dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         dt = dt.replace(tzinfo=CHINA_TZ)
-        return dt.astimezone(timezone.utc)
+        return dt.astimezone(UTC)
     except ValueError:
         LOGGER.warning("Failed to parse datetime '%s'", value)
         return None
@@ -169,7 +175,7 @@ def _parse_announcements(html: str) -> list[AnnouncementSummary]:
             title = _clean_text(item.get("title")) or announce_id
             begin_time = _parse_datetime(item.get("beginTime"))
             if begin_time is None:
-                begin_time = datetime.now(timezone.utc)
+                begin_time = datetime.now(UTC)
             end_time = _parse_datetime(item.get("endTime"))
             add_time = _parse_datetime(item.get("addTime"))
             is_important = str(item.get("isImportant", "0")) == "1"
@@ -241,11 +247,11 @@ class TencentCloudCollector:
             LOGGER.warning("Invalid cursor value '%s'; ignoring", raw)
             return None
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
 
     def save_cursor(self, value: datetime) -> None:
-        value = value.astimezone(timezone.utc)
+        value = value.astimezone(UTC)
         self.state_path.write_text(value.isoformat(), encoding="utf-8")
 
     # --- Fetch ----------------------------------------------------------
@@ -305,6 +311,9 @@ class TencentCloudCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": summary.announce_id,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": summary.title,
@@ -406,10 +415,11 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    LOGGER.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

@@ -52,7 +52,14 @@ python run_collectors.py --profile profiles/default.json
     "source": {
       "source_slug": "the_hacker_news",
       "external_id": "unique-id",
-      "origin_url": "https://example.com/article"
+      "origin_url": "https://example.com/article",
+      "manifest": {
+        "name": "The Hacker News Collector",
+        "version": "1.0.0",
+        "slug": "the_hacker_news"
+      },
+      "manifest_hash": "sha256-hex",
+      "manifest_version": "1.0.0"
     },
     "content": {
       "title": "标题",
@@ -68,6 +75,13 @@ python run_collectors.py --profile profiles/default.json
 ```
 
 返回示例：`{"accepted": 1, "duplicates": 0}`
+
+### Manifest 同步机制（推荐）
+
+- 每个采集器目录维护 `manifest.json`。
+- 采集器每次投递都附带 `source.manifest`、`source.manifest_hash`、`source.manifest_version`。
+- 服务端会按 `source_slug` 自动 upsert 数据源元信息；当 `manifest_hash` 变化时，会切换到新的当前版本记录。
+- 这样主项目与采集器仓库可独立演进，不需要服务端直接读取采集器目录。
 
 ## 调度模型（重要）
 

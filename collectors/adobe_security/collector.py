@@ -12,20 +12,25 @@ Schedule: recommended every 8 hours (28800s)
 """
 from __future__ import annotations
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
-
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
-from urllib.parse import urljoin
 import logging
+import os
+import sys
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup, Tag
+
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -42,6 +47,7 @@ REQUEST_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "User-Agent": USER_AGENT,
 }
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -530,6 +536,9 @@ def normalize(entry: dict[str, Any]) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": bulletin_id,
             "origin_url": entry.get("detail_url") or entry.get("origin_url"),
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -640,15 +649,16 @@ def main():
 
     if not bulletins:
         logger.info("No items to push")
-        print(f"Done: {stats['items_processed']} processed, 0 new items")
+        logger.info("Done: %d processed, 0 new items", stats["items_processed"])
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_processed']} processed, "
-        f"{len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: %d processed, %d fetched, %d accepted, %d duplicates",
+        stats["items_processed"],
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

@@ -16,7 +16,6 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -27,8 +26,13 @@ from bs4 import BeautifulSoup
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -49,6 +53,7 @@ REQUEST_HEADERS = {
 DEFAULT_TOPIC = "policy-compliance"
 PAGE_SIZE = 10
 STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -193,6 +198,9 @@ def normalize(item: dict) -> dict | None:
             "source_slug": SOURCE_SLUG,
             "external_id": item["detail_url"],
             "origin_url": item["detail_url"],
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": item["title"],
@@ -291,10 +299,11 @@ def main():
 
     result = push_to_seclens(bulletins)
     save_cursor(newest_cursor)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

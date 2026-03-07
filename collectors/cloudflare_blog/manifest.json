@@ -1,0 +1,22 @@
+{
+  "name": "Cloudflare Blog Collector",
+  "version": "1.0.0",
+  "slug": "cloudflare_blog",
+  "entrypoint": "collector:main",
+  "description": "Collects security related updates from the Cloudflare Blog.",
+  "schedule": "5400",
+  "source": {
+    "publisher": "Cloudflare",
+    "homepage": "https://blog.cloudflare.com/",
+    "feed_url": "https://blog.cloudflare.com/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Cloudflare 博客",
+    "source_order": 35
+  }
+}
