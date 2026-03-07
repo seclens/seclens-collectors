@@ -1,0 +1,22 @@
+{
+  "name": "NVIDIA Security Bulletin Collector",
+  "version": "1.0.0",
+  "slug": "nvidia_security_bulletin",
+  "entrypoint": "collector:main",
+  "description": "Collects NVIDIA security bulletins from the official product security feed.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "NVIDIA",
+    "homepage": "https://www.nvidia.com/en-us/security/",
+    "feed_url": "https://www.nvidia.com/content/dam/en-zz/Solutions/product-security/product-security.json"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "NVIDIA 安全公告",
+    "source_order": 71
+  }
+}

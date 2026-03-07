@@ -1,0 +1,22 @@
+{
+  "name": "Atlassian Security Advisories Collector",
+  "version": "1.0.0",
+  "slug": "atlassian_security",
+  "entrypoint": "collector:main",
+  "description": "Collects Atlassian vulnerability disclosures from the official API.",
+  "schedule": "21600",
+  "source": {
+    "publisher": "Atlassian",
+    "homepage": "https://www.atlassian.com/trust/security/advisories",
+    "feed_url": "https://www.atlassian.com/gateway/api/vuln-transparency/v1/products"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Atlassian 安全公告",
+    "source_order": 70
+  }
+}

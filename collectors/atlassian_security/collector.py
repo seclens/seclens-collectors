@@ -17,17 +17,20 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -43,6 +46,7 @@ MAX_CACHE_SIZE = 100
 DEFAULT_DAYS_FILTER = 30
 DEFAULT_API_URL = "https://www.atlassian.com/gateway/api/vuln-transparency/v1/products"
 REQUEST_TIMEOUT = 30
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,7 +60,7 @@ LOGGER = logging.getLogger(SOURCE_SLUG)
 # ---------------------------------------------------------------------------
 
 
-def parse_atlassian_date(date_str: str) -> Optional[datetime]:
+def parse_atlassian_date(date_str: str) -> datetime | None:
     """Parse Atlassian date string to datetime object."""
     if not date_str:
         return None
@@ -65,7 +69,7 @@ def parse_atlassian_date(date_str: str) -> Optional[datetime]:
     except ValueError:
         try:
             dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S.000+0000')
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
         except ValueError:
             LOGGER.warning(f"Could not parse date: {date_str}")
             return None
@@ -135,7 +139,7 @@ class AtlassianSecurityCollector:
             )
 
     # --- Fetch ----------------------------------------------------------
-    def fetch_api_data(self) -> Dict[str, Any]:
+    def fetch_api_data(self) -> dict[str, Any]:
         """Fetch security data from Atlassian's API."""
         LOGGER.info(f"Fetching Atlassian security data from {self.api_url}")
 
@@ -157,7 +161,7 @@ class AtlassianSecurityCollector:
 
         return {}
 
-    def fetch_jira_details(self, url: str) -> Optional[str]:
+    def fetch_jira_details(self, url: str) -> str | None:
         """Fetch additional details from JIRA issue page."""
         try:
             headers = {
@@ -189,7 +193,7 @@ class AtlassianSecurityCollector:
             return None
 
     # --- Extract --------------------------------------------------------
-    def extract_cve_details(self, json_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_cve_details(self, json_data: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract CVE details from the API JSON response."""
         cve_list = []
         cve_metadata = json_data.get('cve_metadata', {})
@@ -226,23 +230,23 @@ class AtlassianSecurityCollector:
 
         return cve_list
 
-    def filter_recent_cves(self, cve_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def filter_recent_cves(self, cve_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter CVEs published within the configured time window."""
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.days_filter)
+        cutoff_date = datetime.now(UTC) - timedelta(days=self.days_filter)
         recent_cves = []
 
         for cve in cve_list:
             publish_date = cve.get('publish_date')
             if publish_date:
                 if publish_date.tzinfo is None:
-                    publish_date = publish_date.replace(tzinfo=timezone.utc)
+                    publish_date = publish_date.replace(tzinfo=UTC)
                 if publish_date >= cutoff_date:
                     recent_cves.append(cve)
 
         return recent_cves
 
     # --- Normalize ------------------------------------------------------
-    def normalize(self, cve_info: Dict[str, Any], fetch_jira: bool = True) -> dict:
+    def normalize(self, cve_info: dict[str, Any], fetch_jira: bool = True) -> dict:
         """Create a bulletin dict from CVE information."""
         description = cve_info.get('description', '')
 
@@ -285,6 +289,9 @@ class AtlassianSecurityCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": cve_id,
                 "origin_url": tracking_url or None,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -326,7 +333,7 @@ class AtlassianSecurityCollector:
         recent_cves = self.filter_recent_cves(all_cves)
         LOGGER.info(f"Filtered to {len(recent_cves)} recent CVEs (last {self.days_filter} days)")
 
-        new_cves: List[Dict[str, Any]] = []
+        new_cves: list[dict[str, Any]] = []
         skipped_count = 0
         for cve in recent_cves:
             cve_id = cve.get('cve_id')
@@ -335,7 +342,7 @@ class AtlassianSecurityCollector:
                 continue
             new_cves.append(cve)
 
-        LOGGER.info(f"Filtering results:")
+        LOGGER.info("Filtering results:")
         LOGGER.info(f"  - New CVEs to process: {len(new_cves)}")
         LOGGER.info(f"  - Skipped (already cached): {skipped_count}")
 
@@ -422,10 +429,11 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_created']} created, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    LOGGER.info(
+        "Done: created=%d accepted=%s duplicates=%s",
+        stats["items_created"],
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

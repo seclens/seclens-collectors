@@ -12,21 +12,26 @@ Schedule: recommended every 1 hour (3600s)
 """
 from __future__ import annotations
 
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
-
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Sequence
 import json
 import logging
+import os
 import re
+import sys
+from collections.abc import Sequence
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
+
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -42,6 +47,7 @@ API_BASE_URL = os.environ.get(
 )
 REQUEST_TIMEOUT = 30
 STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -290,6 +296,9 @@ def normalize(item: dict) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": bulletin_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": final_title,
@@ -392,15 +401,16 @@ def main():
 
     if not bulletins:
         logger.info("No items to push")
-        print(f"Done: {stats['items_processed']} processed, 0 new items")
+        logger.info("Done: processed=%d new=0", stats["items_processed"])
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_processed']} processed, "
-        f"{len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: processed=%d fetched=%d accepted=%s duplicates=%s",
+        stats["items_processed"],
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

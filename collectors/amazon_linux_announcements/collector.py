@@ -17,16 +17,22 @@ import logging
 import os
 import sys
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Sequence
+from datetime import datetime
+from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup, Tag
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -41,6 +47,8 @@ BASE_URL = "https://alas.aws.amazon.com/"
 SOURCE_SLUG = "amazon_linux_announcements"
 USER_AGENT = "SeclensCollector/2.0 (amazon_linux_announcements)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +93,22 @@ def _parse_timestamp(value: str | None) -> datetime | None:
         except ValueError:
             continue
     return None
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -201,11 +225,20 @@ def normalize(entry: dict) -> dict:
     if entry.get("updated_dt"):
         extra["updated_at"] = entry["updated_dt"].isoformat()
 
+    raw_payload = dict(entry)
+    if entry.get("published_dt"):
+        raw_payload["published_dt"] = entry["published_dt"].isoformat()
+    if entry.get("updated_dt"):
+        raw_payload["updated_dt"] = entry["updated_dt"].isoformat()
+
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
             "external_id": str(announcement_id or entry.get("origin_url")),
             "origin_url": entry.get("origin_url"),
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -219,7 +252,7 @@ def normalize(entry: dict) -> dict:
         "labels": labels,
         "topics": topics,
         "extra": {k: v for k, v in extra.items() if v},
-        "raw": entry,
+        "raw": raw_payload,
     }
 
 
@@ -264,6 +297,22 @@ def main():
 
     collector = AmazonLinuxAnnouncementsCollector()
     entries = collector.fetch(FetchParams(list_url=LIST_URL))
+    latest_cursor = str(entries[0].get("announcement_id") or entries[0].get("origin_url")) if entries else None
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered: list[dict] = []
+        for entry in entries:
+            cursor_value = str(entry.get("announcement_id") or entry.get("origin_url") or "")
+            if cursor_value == previous_cursor:
+                break
+            filtered.append(entry)
+        entries = filtered
+        logger.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(entries),
+        )
+
     bulletins = []
     for entry in entries:
         try:
@@ -276,7 +325,14 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    if latest_cursor:
+        save_cursor(latest_cursor)
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":
