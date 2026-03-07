@@ -6,5 +6,9 @@
   "timeout_seconds": 300,
   "continue_on_error": true,
   "dry_run": false,
-  "env": {}
+  "env": {},
+  "state_file": ".state/scheduler_state.json",
+  "default_interval_minutes": 60,
+  "min_interval_minutes": 30,
+  "schedule_overrides": {}
 }

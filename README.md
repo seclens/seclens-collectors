@@ -40,7 +40,7 @@ cd seclens-collectors
 # Show all discovered collectors
 python run_collectors.py --list
 
-# Preview profile selection only
+# Preview profile selection and due/skip decisions
 python run_collectors.py --profile profiles/default.json --dry-run
 
 # Execute selected collectors
@@ -56,7 +56,16 @@ Profile example (`profiles/default.json`):
   "disabled": [],
   "concurrency": 2,
   "timeout_seconds": 300,
-  "continue_on_error": true
+  "continue_on_error": true,
+  "state_file": ".state/scheduler_state.json",
+  "default_interval_minutes": 60,
+  "min_interval_minutes": 30,
+  "schedule_overrides": {
+    "the_hacker_news": {
+      "interval_minutes": 30,
+      "anchor_utc": "2026-03-07T02:10:00Z"
+    }
+  }
 }
 ```
 
@@ -65,6 +74,15 @@ Default profile keeps all collectors disabled (`enabled: []`). Enable only what 
 `run_mode` options:
 - `enabled_only`: run only collectors in `enabled`
 - `all_except_disabled`: run all discovered collectors except `disabled`
+
+Scheduling priority (highest to lowest):
+- Environment override: `COLLECTOR_<SLUG>_INTERVAL_MINUTES`, `COLLECTOR_<SLUG>_ANCHOR_UTC`
+- Profile `schedule_overrides.<slug>`
+- Collector `config.example.yaml` recommended schedule
+- `default_interval_minutes` fallback
+
+The scheduler persists `next_due_at` in `state_file`, so service restarts do not trigger all collectors at once.
+Set `anchor_utc` to spread collector start times and avoid burst traffic.
 
 ## Collector List
 
@@ -130,8 +148,8 @@ docker compose up
 ## Running with Cron
 
 ```bash
-# Single entry: profile-driven run every hour
-0 * * * * cd /opt/seclens-collectors && /usr/bin/python3 run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors.log 2>&1
+# Wake every 5 minutes; actual run/skip is decided by collector schedule
+*/5 * * * * cd /opt/seclens-collectors && /opt/seclens-collectors/.venv/bin/python run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors.log 2>&1
 ```
 
 ## Running with systemd timer (recommended)

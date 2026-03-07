@@ -20,8 +20,8 @@ SECLENS_TOKEN=slct_your_token_here
 COLLECTORS_DIR=/opt/seclens-collectors
 
 # --- Profile-driven scheduling (recommended) ---
-# Run selected collectors every hour using profiles/default.json
-0 * * * *   cd $COLLECTORS_DIR && python run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors_runner.log 2>&1
+# Wake scheduler every 5 minutes; per-collector interval is resolved in run_collectors.py
+*/5 * * * *   cd $COLLECTORS_DIR && ./.venv/bin/python run_collectors.py --profile profiles/default.json >> /var/log/seclens/collectors_runner.log 2>&1
 
 # If you use profile-driven scheduling, comment out legacy entries below.
 

@@ -7,5 +7,4 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/seclens-collectors
 EnvironmentFile=/opt/seclens-collectors/.env
-ExecStart=/usr/bin/python3 /opt/seclens-collectors/run_collectors.py --profile profiles/default.json
-
+ExecStart=/opt/seclens-collectors/.venv/bin/python /opt/seclens-collectors/run_collectors.py --profile profiles/default.json
