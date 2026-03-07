@@ -24,6 +24,16 @@ DEFAULT_INTERVAL_MINUTES = 60
 DEFAULT_MIN_INTERVAL_MINUTES = 30
 DEFAULT_STATE_FILE = ".state/scheduler_state.json"
 ANCHOR_BASE = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)
+ALLOWED_PLUGIN_ENV_KEYS = {
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+}
 
 
 @dataclass(frozen=True)
@@ -265,6 +275,12 @@ def _resolve_schedule(
                     raise ValueError(f"schedule_overrides.{slug}.env keys must be strings")
                 if value is None:
                     continue
+                if key not in ALLOWED_PLUGIN_ENV_KEYS:
+                    allowed = ", ".join(sorted(ALLOWED_PLUGIN_ENV_KEYS))
+                    raise ValueError(
+                        f"Unsupported env key in schedule_overrides.{slug}.env: '{key}'. "
+                        f"Allowed keys: {allowed}"
+                    )
                 plugin_env[str(key)] = str(value)
 
     source = f"interval={interval_source},anchor={anchor_source}"
