@@ -1,0 +1,22 @@
+{
+  "name": "ThreatBook SilverFox Intelligence Collector",
+  "version": "1.0.0",
+  "slug": "threatbook_silverfox",
+  "entrypoint": "collector:main",
+  "description": "Collects SilverFox threat intelligence reports from ThreatBook.",
+  "schedule": "7200",
+  "source": {
+    "publisher": "ThreatBook",
+    "homepage": "https://s.threatbook.com/cybercrime/silverfox",
+    "feed_url": "https://s.threatbook.com/apis/cybercrime-trend/get-humans"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "针对攻击活动、样本与IOC的持续情报更新。",
+    "group_order": 12,
+    "source_title": "微步银狐情报",
+    "source_order": 40
+  }
+}

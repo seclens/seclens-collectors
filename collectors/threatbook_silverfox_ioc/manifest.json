@@ -1,0 +1,22 @@
+{
+  "name": "ThreatBook SilverFox IOC Collector",
+  "version": "1.0.0",
+  "slug": "threatbook_silverfox_ioc",
+  "entrypoint": "collector:main",
+  "description": "Collects hot IOC batches for SilverFox from ThreatBook.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "ThreatBook",
+    "homepage": "https://s.threatbook.com/cybercrime/silverfox",
+    "feed_url": "https://s.threatbook.com/apis/cybercrime-trend/get-hot-ioc"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "针对攻击活动、样本与IOC的持续情报更新。",
+    "group_order": 12,
+    "source_title": "微步银狐 IOC",
+    "source_order": 41
+  }
+}

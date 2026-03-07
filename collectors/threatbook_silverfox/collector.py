@@ -10,6 +10,7 @@ Usage:
 
 Schedule: recommended every 2 hours (7200s)
 """
+# ruff: noqa: UP006,UP035,UP045,UP017,UP015,F401
 from __future__ import annotations
 
 import json
@@ -23,8 +24,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -42,6 +48,7 @@ REQUEST_TIMEOUT = 30
 
 CACHE_FILE = ".cursor"
 CACHE_LIMIT = 100
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
@@ -241,6 +248,9 @@ class ThreatBookSilverFoxCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": uuid,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -346,7 +356,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

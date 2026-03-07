@@ -11,6 +11,7 @@ Usage:
 
 Schedule: recommended every 1 hour (3600s)
 """
+# ruff: noqa: UP006,UP035,UP045,UP017,UP015,F401
 from __future__ import annotations
 
 import json
@@ -25,8 +26,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -46,6 +52,7 @@ REQUEST_TIMEOUT = 30
 CACHE_FILE = ".cache.json"
 IOC_CACHE_LIMIT = 500
 HASH_CACHE_LIMIT = 300
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -488,6 +495,9 @@ class ThreatBookSilverFoxIOCCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": f"silverfox-ioc-{batch.batch_id}",
                 "origin_url": DETAIL_PAGE_URL,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -650,7 +660,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {stats.get('total_new', 0)} new IOCs, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: new_iocs=%d accepted=%s duplicates=%s",
+        stats.get("total_new", 0),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

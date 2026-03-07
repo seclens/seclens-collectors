@@ -13,7 +13,6 @@ Schedule: recommended every 1 hour (3600s)
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
 import re
@@ -22,12 +21,16 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Sequence
 
 import requests
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -41,6 +44,7 @@ USER_AGENT = "SeclensCollector/2.0 (vuldb)"
 REQUEST_TIMEOUT = 30
 DEFAULT_LIMIT = 20
 STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -107,12 +111,12 @@ def _load_cursor() -> datetime | None:
         logger.warning("Invalid cursor value '%s'; ignoring", raw)
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=timezone.utc)  # noqa: UP017
+    return dt.astimezone(timezone.utc)  # noqa: UP017
 
 
 def _save_cursor(value: datetime) -> None:
-    value = value.astimezone(timezone.utc)
+    value = value.astimezone(timezone.utc)  # noqa: UP017
     _cursor_path().write_text(value.isoformat(), encoding="utf-8")
 
 
@@ -203,6 +207,9 @@ def normalize(entry: FeedEntry) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": entry.entry_id,
             "origin_url": entry.link,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": entry.title,
@@ -306,10 +313,11 @@ def main():
     if latest_dt and bulletins:
         _save_cursor(latest_dt)
 
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
