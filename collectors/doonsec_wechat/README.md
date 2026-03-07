@@ -52,3 +52,19 @@ export DOONSEC_WHITELIST_AUTHORS="奇安信,绿盟科技,安天集团"
 | `DOONSEC_FEED_URL` | No | doonsec RSS URL | Override the RSS feed URL |
 | `DOONSEC_WHITELIST_ENABLED` | No | false | Enable author whitelist filtering |
 | `DOONSEC_WHITELIST_AUTHORS` | No | - | Comma-separated list of allowed authors |
+| `DOONSEC_FETCH_CONTENT_ENABLED` | No | false | Enable browser-based full article fetching |
+| `DOONSEC_FETCH_CONTENT_LIMIT` | No | 10 | Max number of entries to fetch full content per run |
+| `DOONSEC_FETCH_CONTENT_TIMEOUT` | No | 30 | Per-article browser fetch timeout (seconds) |
+| `DOONSEC_BROWSER_PROXY` | No | - | Browser proxy URL for WeChat fetcher, e.g. `http://host:port` |
+
+## Optional Full-Content Mode
+
+When enabled, collector will open article links in a headless browser and try to extract full text from WeChat page body (`#js_content`).
+
+```bash
+export DOONSEC_FETCH_CONTENT_ENABLED=true
+export DOONSEC_FETCH_CONTENT_LIMIT=5
+export DOONSEC_FETCH_CONTENT_TIMEOUT=25
+# optional
+export DOONSEC_BROWSER_PROXY="http://192.168.15.88:8080"
+```

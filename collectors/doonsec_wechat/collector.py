@@ -194,13 +194,24 @@ def fetch_feed(feed_url: str = FEED_URL, limit: int | None = None) -> list[dict]
 
 def normalize(item: dict) -> dict:
     """Convert a feed entry dict to a SecLens bulletin dict."""
+    return _normalize_with_content(item)
+
+
+def _normalize_with_content(
+    item: dict,
+    *,
+    fetched_body: str | None = None,
+    fetched_title: str | None = None,
+    fetched_meta: dict | None = None,
+) -> dict:
+    """Convert a feed entry dict to a SecLens bulletin dict, optionally with fetched article body."""
     published_at = parse_first(
         [(item.get("pub_date"), "item.pubDate")],
         default_tz="Asia/Shanghai",
     )
 
     origin_url = _clean_text(item.get("link"))
-    title = _clean_text(item.get("title")) or (origin_url or "")
+    title = fetched_title or _clean_text(item.get("title")) or (origin_url or "")
     description = _clean_text(item.get("description"))
     author = _clean_text(item.get("author"))
     category = _clean_text(item.get("category"))
@@ -216,8 +227,10 @@ def normalize(item: dict) -> dict:
     extra: dict = {
         "author": author,
         "category": category,
-        "content_fetched": False,
+        "content_fetched": fetched_body is not None,
     }
+    if fetched_meta:
+        extra["fetched_meta"] = fetched_meta
 
     raw_payload = {k: v for k, v in item.items() if k != "raw_xml"}
     if item.get("raw_xml"):
@@ -235,7 +248,7 @@ def normalize(item: dict) -> dict:
         "content": {
             "title": title,
             "summary": description,
-            "body_text": description,
+            "body_text": fetched_body or description,
             "published_at": published_at,
             "language": "zh",
         },
@@ -294,6 +307,10 @@ def main():
     whitelist_enabled = os.environ.get("DOONSEC_WHITELIST_ENABLED", "").lower() in ("1", "true", "yes")
     whitelist_raw = os.environ.get("DOONSEC_WHITELIST_AUTHORS", "")
     whitelist_authors = [a.strip() for a in whitelist_raw.split(",") if a.strip()] if whitelist_raw else []
+    fetch_content_enabled = os.environ.get("DOONSEC_FETCH_CONTENT_ENABLED", "").lower() in ("1", "true", "yes")
+    fetch_timeout = int(os.environ.get("DOONSEC_FETCH_CONTENT_TIMEOUT", "30") or "30")
+    fetch_limit = int(os.environ.get("DOONSEC_FETCH_CONTENT_LIMIT", "10") or "10")
+    browser_proxy = (os.environ.get("DOONSEC_BROWSER_PROXY") or "").strip() or None
 
     cached_urls = _load_cache()
     logger.info("Loaded cache: %d article URLs already seen", len(cached_urls))
@@ -326,13 +343,50 @@ def main():
         logger.info("After whitelist filtering: %d entries, %d skipped", len(filtered), skipped_whitelist)
         new_entries = filtered
 
+    fetched_contents: dict[str, tuple[str | None, str | None, dict | None]] = {}
+    content_fetch_failures = 0
+    if fetch_content_enabled and new_entries:
+        logger.info("Content fetch enabled; target entries=%d", min(len(new_entries), fetch_limit))
+        try:
+            try:
+                from .wechat_fetcher import WeChatFetcher
+            except ImportError:
+                from wechat_fetcher import WeChatFetcher
+
+            with WeChatFetcher(proxy_url=browser_proxy) as fetcher:
+                for entry in new_entries[:fetch_limit]:
+                    url = entry.get("link")
+                    if not url:
+                        continue
+                    title, body, meta = fetcher.fetch(url, timeout=fetch_timeout)
+                    fetched_contents[url] = (title, body, meta)
+                    if body:
+                        logger.info("Fetched full content for %s", url)
+                    else:
+                        content_fetch_failures += 1
+                        logger.warning("Failed to fetch full content for %s: %s", url, (meta or {}).get("error"))
+        except ImportError as exc:
+            logger.warning("WeChat fetch dependencies unavailable: %s", exc)
+        except Exception as exc:
+            logger.warning("WeChat content fetch aborted: %s", exc)
+
     # Normalize entries
     bulletins = []
     new_urls = set()
     for entry in new_entries:
-        bulletin = normalize(entry)
-        bulletins.append(bulletin)
         url = entry.get("link")
+        fetched_title = None
+        fetched_body = None
+        fetched_meta = None
+        if url and url in fetched_contents:
+            fetched_title, fetched_body, fetched_meta = fetched_contents[url]
+        bulletin = _normalize_with_content(
+            entry,
+            fetched_body=fetched_body,
+            fetched_title=fetched_title,
+            fetched_meta=fetched_meta,
+        )
+        bulletins.append(bulletin)
         if url:
             new_urls.add(url)
 
@@ -348,12 +402,13 @@ def main():
 
     result = push_to_seclens(bulletins)
     logger.info(
-        "Done: fetched=%d, accepted=%s, duplicates=%s, cached=%d, whitelist_filtered=%d",
+        "Done: fetched=%d, accepted=%s, duplicates=%s, cached=%d, whitelist_filtered=%d, content_fetch_failures=%d",
         len(bulletins),
         result.get("accepted", 0),
         result.get("duplicates", 0),
         skipped_cache,
         skipped_whitelist,
+        content_fetch_failures,
     )
 
 
