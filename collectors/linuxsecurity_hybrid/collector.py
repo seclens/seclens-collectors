@@ -17,17 +17,22 @@ import logging
 import os
 import sys
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Sequence
+from pathlib import Path
 
 import requests
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -42,16 +47,34 @@ DEFAULT_FEED_URL = os.environ.get(
 SOURCE_SLUG = "linuxsecurity_hybrid"
 USER_AGENT = "SeclensCollector/2.0 (linuxsecurity_hybrid)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
 REQUEST_HEADERS = {
     "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
     "User-Agent": USER_AGENT,
 }
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(SOURCE_SLUG)
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +181,9 @@ class LinuxSecurityCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": external_id,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": item.get("title") or (origin_url or ""),
@@ -228,7 +254,24 @@ def main():
         sys.exit(1)
 
     collector = LinuxSecurityCollector()
-    bulletins = collector.collect()
+    entries = collector.fetch(FetchParams())
+    latest_cursor = str(entries[0].get("guid") or entries[0].get("link")) if entries else None
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered: list[dict] = []
+        for item in entries:
+            cursor_value = str(item.get("guid") or item.get("link") or "")
+            if cursor_value == previous_cursor:
+                break
+            filtered.append(item)
+        entries = filtered
+        logger.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(entries),
+        )
+
+    bulletins = [collector.normalize(item) for item in entries]
     logger.info("Fetched %d bulletins", len(bulletins))
 
     if not bulletins:
@@ -236,10 +279,13 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if latest_cursor:
+        save_cursor(latest_cursor)
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

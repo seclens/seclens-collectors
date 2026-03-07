@@ -23,16 +23,20 @@ import requests
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
 
 # Reuse the shared CCGP logic from the local procurement collector
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ccgp_local_procurement.collector import (
     DEFAULT_CENTRAL_LIST_URL,
     fetch_list,
+)
+from ccgp_local_procurement.collector import (
     normalize as _normalize_local,
-    push_to_seclens as _push_base,
 )
 
 # ---------------------------------------------------------------------------
@@ -45,6 +49,7 @@ SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 SOURCE_SLUG = "ccgp_central_procurement"
 USER_AGENT = "SeclensCollector/2.0 (ccgp_central_procurement)"
 REQUEST_TIMEOUT = 30
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +69,9 @@ def normalize(item: dict) -> dict | None:
         item,
         source_slug=SOURCE_SLUG,
         topics=["security_procurement"],
+        manifest=MANIFEST,
+        manifest_hash=MANIFEST_HASH,
+        manifest_version=MANIFEST_VERSION,
     )
 
 
@@ -126,10 +134,11 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

@@ -1,0 +1,22 @@
+{
+  "name": "CCGP Local Procurement Collector",
+  "version": "1.0.0",
+  "slug": "ccgp_local_procurement",
+  "entrypoint": "collector:main",
+  "description": "Collects security-related local procurement announcements from CCGP.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "中国政府采购网",
+    "homepage": "https://www.ccgp.gov.cn/cggg/dfgg/",
+    "feed_url": "https://www.ccgp.gov.cn/cggg/dfgg/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "procurement",
+    "group_title": "采购动态",
+    "group_description": "政府及机构与安全相关的采购公告信息。",
+    "group_order": 25,
+    "source_title": "地方采购（CCGP）",
+    "source_order": 10
+  }
+}

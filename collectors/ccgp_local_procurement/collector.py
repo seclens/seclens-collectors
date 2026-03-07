@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
@@ -27,8 +27,13 @@ from bs4 import BeautifulSoup
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -52,6 +57,8 @@ REQUEST_HEADERS = {
 }
 REQUEST_TIMEOUT = 30
 DEFAULT_TOPIC = "security_procurement"
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 KEYWORDS = (
     "网安",
     "网络安全",
@@ -67,6 +74,22 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(SOURCE_SLUG)
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +250,9 @@ def normalize(
     item: dict,
     source_slug: str = SOURCE_SLUG,
     topics: list[str] | None = None,
+    manifest: dict | None = MANIFEST,
+    manifest_hash: str | None = MANIFEST_HASH,
+    manifest_version: str | None = MANIFEST_VERSION,
 ) -> dict | None:
     """Normalize a CCGP procurement item to a SecLens bulletin dict."""
     topics = topics or [DEFAULT_TOPIC]
@@ -275,6 +301,9 @@ def normalize(
             "source_slug": source_slug,
             "external_id": item["detail_url"],
             "origin_url": item["detail_url"],
+            "manifest": manifest,
+            "manifest_hash": manifest_hash,
+            "manifest_version": manifest_version,
         },
         "content": {
             "title": item["title"],
@@ -336,6 +365,21 @@ def main():
 
     list_url = os.environ.get("CCGP_LIST_URL", DEFAULT_LOCAL_LIST_URL)
     items = fetch_list(list_url=list_url)
+    latest_cursor = items[0]["detail_url"] if items else None
+    previous_cursor = load_cursor()
+    if previous_cursor:
+        filtered_items: list[dict] = []
+        for item in items:
+            cursor_value = str(item.get("detail_url") or "")
+            if cursor_value == previous_cursor:
+                break
+            filtered_items.append(item)
+        items = filtered_items
+        logger.info(
+            "Cursor check: previous=%s, pending=%d",
+            previous_cursor,
+            len(items),
+        )
 
     bulletins = []
     for item in items:
@@ -351,10 +395,13 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if latest_cursor:
+        save_cursor(latest_cursor)
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
