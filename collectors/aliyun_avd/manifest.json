@@ -1,0 +1,22 @@
+{
+  "name": "Aliyun AVD Collector",
+  "version": "1.0.0",
+  "slug": "aliyun_avd",
+  "entrypoint": "collector:main",
+  "description": "Collects vulnerabilities from Aliyun AVD with Selenium-based anti-bot bypass.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "Alibaba Cloud",
+    "homepage": "https://avd.aliyun.com/",
+    "feed_url": "https://avd.aliyun.com/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "阿里云 AVD",
+    "source_order": 46
+  }
+}

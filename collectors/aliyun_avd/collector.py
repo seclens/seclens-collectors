@@ -10,6 +10,7 @@ Usage:
 
 Schedule: recommended every 4 hours (14400s)
 """
+# ruff: noqa: UP006,UP035,UP045,UP015,UP017,SIM105,F541,I001
 from __future__ import annotations
 
 import json
@@ -19,7 +20,7 @@ import re
 import stat
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,8 +35,13 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium_stealth import stealth
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -55,6 +61,7 @@ MAX_AGE_DAYS = 60
 BASE_URL = "https://avd.aliyun.com"
 LIST_URL = BASE_URL
 DETAIL_URL_TEMPLATE = f"{BASE_URL}/detail?id={{avd_id}}"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -598,6 +605,9 @@ class AliyunAVDCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": avd_id,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": title,
@@ -812,10 +822,11 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {stats['items_created']} created, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    logger.info(
+        "Done: created=%d, accepted=%s, duplicates=%s",
+        stats["items_created"],
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 
