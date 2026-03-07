@@ -540,7 +540,7 @@ def main() -> int:
         for future in as_completed(future_map):
             result = future.result()
             results.append(result)
-            merged_env = {**env_overrides, **schedules[result.slug].env_overrides}
+            merged_env = {**os.environ, **env_overrides, **schedules[result.slug].env_overrides}
 
             if emit_heartbeat:
                 _emit_empty_heartbeat(
