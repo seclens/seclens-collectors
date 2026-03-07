@@ -50,6 +50,7 @@ USER_AGENT = (
 ARTICLE_ACCEPT = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"
 STATE_FILE_NAME = ".cursor"
 REQUEST_TIMEOUT = 30
+DEFAULT_LIMIT = 50
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
@@ -399,6 +400,8 @@ def main():
             except ValueError:
                 pass
         selected.append(entry)
+    if DEFAULT_LIMIT and len(selected) > DEFAULT_LIMIT:
+        selected = selected[:DEFAULT_LIMIT]
 
     bulletins = [normalize(entry) for entry in selected]
 

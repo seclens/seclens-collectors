@@ -42,6 +42,7 @@ FEED_URL = os.environ.get(
 SOURCE_SLUG = "msrc_update_guide"
 USER_AGENT = "SeclensCollector/2.0 (msrc_update_guide)"
 REQUEST_TIMEOUT = 30
+DEFAULT_LIMIT = 200
 STATE_FILE_NAME = ".cursor"
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
@@ -245,7 +246,7 @@ def main():
         logger.error("SECLENS_TOKEN environment variable is required")
         sys.exit(1)
 
-    items = fetch_feed()
+    items = fetch_feed(limit=DEFAULT_LIMIT)
     if not items:
         logger.info("No feed items fetched")
         return
