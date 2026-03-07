@@ -17,7 +17,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -51,6 +51,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(SOURCE_SLUG)
+UTC = timezone.utc  # noqa: UP017
 
 
 # ---------------------------------------------------------------------------

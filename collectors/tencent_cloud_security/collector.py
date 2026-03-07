@@ -19,7 +19,7 @@ import re
 import sys
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -56,6 +56,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 LOGGER = logging.getLogger(SOURCE_SLUG)
+UTC = timezone.utc  # noqa: UP017
 
 
 # ---------------------------------------------------------------------------
