@@ -1,0 +1,30 @@
+{
+  "run_mode": "enabled_only",
+  "enabled": [
+    "chaitin_vuldb",
+    "seebug_vuldb",
+    "seebug_paper_rss",
+    "venustech_vuln_bulletin",
+    "cisa_kev_catalog"
+  ],
+  "concurrency": 1,
+  "timeout_seconds": 300,
+  "continue_on_error": true,
+  "dry_run": false,
+  "env": {
+    "SECLENS_URL": "https://seclens.info",
+    "SECLENS_TOKEN": "slct_-8tc2-thbeFw2Qv5D3osv7OSxC2zYYXKfHQ5j8wv",
+    "SEEBUG_VULDB_LIMIT": "8",
+    "VENUSTECH_AQTG_LIMIT": "8"
+  },
+  "state_file": ".state/chris-dev-state.json",
+  "default_interval_minutes": 60,
+  "min_interval_minutes": 15,
+  "schedule_overrides": {
+    "chaitin_vuldb": {"interval_minutes": 30},
+    "seebug_vuldb": {"interval_minutes": 60},
+    "seebug_paper_rss": {"interval_minutes": 60},
+    "venustech_vuln_bulletin": {"interval_minutes": 120},
+    "cisa_kev_catalog": {"interval_minutes": 120}
+  }
+}

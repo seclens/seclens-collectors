@@ -1,0 +1,22 @@
+{
+  "name": "Seebug Paper RSS Collector",
+  "version": "1.0.0",
+  "slug": "seebug_paper_rss",
+  "entrypoint": "collector:main",
+  "description": "Collects Seebug Paper RSS security research posts.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "知道创宇 Seebug Paper",
+    "homepage": "https://paper.seebug.org/",
+    "feed_url": "https://paper.seebug.org/rss/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "community_intel",
+    "group_title": "社区情报",
+    "group_description": "社区研究与技术分享来源。",
+    "group_order": 25,
+    "source_title": "Seebug 技术 Paper",
+    "source_order": 12
+  }
+}

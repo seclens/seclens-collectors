@@ -1,0 +1,22 @@
+{
+  "name": "Venustech Vulnerability Bulletin Collector",
+  "version": "1.0.0",
+  "slug": "venustech_vuln_bulletin",
+  "entrypoint": "collector:main",
+  "description": "Collects vulnerability bulletins from Venustech security announcements.",
+  "schedule": "7200",
+  "source": {
+    "publisher": "启明星辰",
+    "homepage": "https://www.venustech.com.cn/new_type/aqtg/",
+    "feed_url": "https://www.venustech.com.cn/new_type/aqtg/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "启明星辰安全通告",
+    "source_order": 38
+  }
+}
