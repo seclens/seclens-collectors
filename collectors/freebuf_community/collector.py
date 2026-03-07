@@ -109,9 +109,14 @@ def fetch_feed(feed_url: str = FEED_URL) -> list[dict]:
     )
     response = session.get(feed_url, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
+    body = response.text
+    content_type = (response.headers.get("Content-Type") or "").lower()
+    if "text/html" in content_type and "aliyun_waf_" in body:
+        logger.warning("FreeBuf returned WAF challenge page; skip this run")
+        return []
 
     try:
-        root = ET.fromstring(response.text)
+        root = ET.fromstring(body)
     except ET.ParseError as exc:
         raise ValueError("Failed to parse FreeBuf RSS feed") from exc
 
