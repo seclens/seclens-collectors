@@ -33,3 +33,5 @@ logs/
 .cache.json
 .cursor
 .state.json
+.state/
+profiles/default.json

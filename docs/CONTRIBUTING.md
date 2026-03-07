@@ -156,7 +156,8 @@ To test your collector against a SecLens server, you need an API token. Contact 
 
 This repository supports a centralized runner (`run_collectors.py`) so operators can enable/disable collectors through one profile file.
 
-- Profile example: `profiles/default.json`
+- Profile template: `profiles/default.example.json`
+- Create working profile: `cp profiles/default.example.json profiles/default.json`
 - Dry run: `python run_collectors.py --profile profiles/default.json --dry-run`
 - Run selected collectors: `python run_collectors.py --profile profiles/default.json`
 

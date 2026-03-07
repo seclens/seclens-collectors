@@ -32,6 +32,9 @@ SECLENS_URL=https://seclens.info
 SECLENS_TOKEN=slct_xxx
 EOF
 
+# 复制 profile 模板（工作文件 default.json 不纳入 git）
+cp profiles/default.example.json profiles/default.json
+
 # 预览本轮会跑哪些采集器
 python run_collectors.py --profile profiles/default.json --dry-run
 
@@ -79,7 +82,8 @@ python run_collectors.py --profile profiles/default.json
 
 ## Profile 配置格式（给用户/LLM）
 
-建议使用 `profiles/default.json`。
+模板文件是 `profiles/default.example.json`。  
+实际运行请复制为 `profiles/default.json`（该文件是本地工作文件，不会被 `git pull` 覆盖）。
 
 ### 完整字段模板
 
