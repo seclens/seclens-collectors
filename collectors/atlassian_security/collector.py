@@ -283,6 +283,9 @@ class AtlassianSecurityCollector:
             [(publish_date, "publish_date")],
             default_tz="UTC",
         )
+        raw_payload = dict(cve_info)
+        if isinstance(raw_payload.get("publish_date"), datetime):
+            raw_payload["publish_date"] = raw_payload["publish_date"].isoformat()
 
         return {
             "source": {
@@ -308,7 +311,7 @@ class AtlassianSecurityCollector:
                 "tracking_url": tracking_url,
                 "affected_products": affected_products,
             },
-            "raw": cve_info,
+            "raw": raw_payload,
         }
 
     # --- Collection -----------------------------------------------------
