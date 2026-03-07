@@ -1,0 +1,22 @@
+{
+  "name": "CISA KEV Catalog Collector",
+  "version": "1.0.0",
+  "slug": "cisa_kev_catalog",
+  "entrypoint": "collector:main",
+  "description": "Collects CISA Known Exploited Vulnerabilities Catalog from official JSON feed.",
+  "schedule": "14400",
+  "source": {
+    "publisher": "CISA",
+    "homepage": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    "feed_url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "漏洞与威胁情报来源。",
+    "group_order": 20,
+    "source_title": "CISA KEV Catalog",
+    "source_order": 23
+  }
+}

@@ -1,0 +1,4 @@
+seclens_url: "https://seclens.info"
+seclens_token: "slct_xxx"
+seebug_vuldb_list_url: "https://www.seebug.org/vuldb/vulnerabilities"
+seebug_vuldb_limit: 30

@@ -1,0 +1,22 @@
+{
+  "name": "Seebug VulDB Collector",
+  "version": "1.0.0",
+  "slug": "seebug_vuldb",
+  "entrypoint": "collector:main",
+  "description": "Collects latest vulnerability entries from Seebug VulDB list and detail pages.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "知道创宇 Seebug",
+    "homepage": "https://www.seebug.org/vuldb/vulnerabilities",
+    "feed_url": "https://www.seebug.org/vuldb/vulnerabilities"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "漏洞与威胁情报来源。",
+    "group_order": 20,
+    "source_title": "Seebug 漏洞库",
+    "source_order": 22
+  }
+}

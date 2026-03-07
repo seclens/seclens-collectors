@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.seclens.collectors.runner</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/opt/seclens-collectors/scripts/run_collectors.sh</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>WorkingDirectory</key>
+  <string>/opt/seclens-collectors</string>
+
+  <key>StandardOutPath</key>
+  <string>/opt/seclens-collectors/logs/run_collectors.log</string>
+  <key>StandardErrorPath</key>
+  <string>/opt/seclens-collectors/logs/run_collectors.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

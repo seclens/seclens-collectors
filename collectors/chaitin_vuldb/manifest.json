@@ -1,0 +1,22 @@
+{
+  "name": "Chaitin VulDB Collector",
+  "version": "1.0.0",
+  "slug": "chaitin_vuldb",
+  "entrypoint": "collector:main",
+  "description": "Collects vulnerability entries from Chaitin Stack VulDB API.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "长亭科技",
+    "homepage": "https://stack.chaitin.com/vuldb/index",
+    "feed_url": "https://stack.chaitin.com/api/v2/vuln/list/?limit=15&offset=0&search="
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "漏洞与威胁情报来源。",
+    "group_order": 20,
+    "source_title": "长亭漏洞库",
+    "source_order": 21
+  }
+}

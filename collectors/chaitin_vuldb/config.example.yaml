@@ -1,0 +1,3 @@
+seclens_url: "https://seclens.info"
+seclens_token: "slct_xxx"
+chaitin_vuldb_api_url: "https://stack.chaitin.com/api/v2/vuln/list/?limit=15&offset=0&search="

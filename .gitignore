@@ -35,3 +35,4 @@ logs/
 .state.json
 .state/
 profiles/default.json
+profiles/*.local.json
