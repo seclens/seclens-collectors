@@ -17,17 +17,23 @@ import os
 import sys
 import unicodedata
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Iterable, Sequence
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -41,6 +47,8 @@ FEED_URL = os.environ.get(
 SOURCE_SLUG = "aws_security_bulletins"
 USER_AGENT = "SeclensCollector/2.0 (aws_security_bulletins)"
 REQUEST_TIMEOUT = 30
+STATE_FILE_NAME = ".cursor"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,8 +105,8 @@ def _parse_pub_date(value: str | None) -> datetime | None:
     except (TypeError, ValueError):
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=timezone.utc)  # noqa: UP017
+    return dt.astimezone(timezone.utc)  # noqa: UP017
 
 
 def _harvest_label_values(paragraph: Tag) -> dict[str, str]:
@@ -171,6 +179,22 @@ def _first_meaningful_paragraph(paragraphs: Iterable[str]) -> str | None:
             continue
         return text
     return next(iter(paragraphs), None) if hasattr(paragraphs, "__iter__") else None
+
+
+def _state_file_path() -> Path:
+    return Path(__file__).resolve().parent / STATE_FILE_NAME
+
+
+def load_cursor() -> str | None:
+    path = _state_file_path()
+    if not path.exists():
+        return None
+    value = path.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def save_cursor(cursor: str) -> None:
+    _state_file_path().write_text(cursor.strip(), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -273,12 +297,18 @@ def normalize(entry: dict) -> dict:
         "author": entry.get("author"),
         "details": details,
     }
+    raw_entry = dict(entry)
+    if isinstance(raw_entry.get("pub_date"), datetime):
+        raw_entry["pub_date"] = raw_entry["pub_date"].isoformat()
 
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
             "external_id": str(external_id),
             "origin_url": link,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": entry.get("title") or (link or str(external_id)),
@@ -292,7 +322,7 @@ def normalize(entry: dict) -> dict:
         "labels": labels,
         "topics": topics,
         "extra": {k: v for k, v in extra.items() if v},
-        "raw": entry,
+        "raw": raw_entry,
     }
 
 
@@ -340,6 +370,33 @@ def main():
         sys.exit(1)
 
     entries = fetch_feed()
+    if not entries:
+        logger.info("No feed items fetched")
+        return
+
+    newest_cursor = str(
+        entries[0].get("guid")
+        or entries[0].get("link")
+        or entries[0].get("title")
+        or ""
+    )
+    cursor = load_cursor()
+    if cursor:
+        fresh_entries: list[dict] = []
+        for entry in entries:
+            entry_cursor = str(entry.get("guid") or entry.get("link") or entry.get("title") or "")
+            if entry_cursor == cursor:
+                break
+            fresh_entries.append(entry)
+        logger.info("Cursor loaded: %s, %d new candidate items", cursor, len(fresh_entries))
+        entries = fresh_entries
+    else:
+        logger.info("No cursor found, treating current feed as initial batch")
+
+    if not entries:
+        logger.info("No new items since cursor, skip push")
+        return
+
     bulletins = [normalize(entry) for entry in entries]
 
     if not bulletins:
@@ -347,10 +404,13 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates"
+    if newest_cursor:
+        save_cursor(newest_cursor)
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
     )
 
 

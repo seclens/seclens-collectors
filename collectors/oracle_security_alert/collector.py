@@ -19,14 +19,18 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -46,12 +50,14 @@ USER_AGENT = (
 ARTICLE_ACCEPT = "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8"
 STATE_FILE_NAME = ".cursor"
 REQUEST_TIMEOUT = 30
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(SOURCE_SLUG)
+UTC = timezone.utc  # noqa: UP017
 
 
 # ---------------------------------------------------------------------------
@@ -76,12 +82,12 @@ def load_cursor() -> datetime | None:
         logger.warning("Invalid cursor value '%s'", raw)
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def save_cursor(value: datetime) -> None:
-    value = value.astimezone(timezone.utc)
+    value = value.astimezone(UTC)
     _state_path().write_text(value.isoformat(), encoding="utf-8")
 
 
@@ -309,6 +315,9 @@ def normalize(entry: FeedEntry) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": external_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": entry.title,
@@ -412,7 +421,12 @@ def main():
     if latest_dt:
         save_cursor(latest_dt)
 
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: %d fetched, %d accepted, %d duplicates",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

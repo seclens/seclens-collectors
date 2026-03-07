@@ -1,0 +1,22 @@
+{
+  "name": "MSRC Update Guide Collector",
+  "version": "1.0.0",
+  "slug": "msrc_update_guide",
+  "entrypoint": "collector:main",
+  "description": "Collects Microsoft Security Response Center update guide advisories via RSS.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Microsoft",
+    "homepage": "https://msrc.microsoft.com/update-guide",
+    "feed_url": "https://api.msrc.microsoft.com/update-guide/rss"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "MSRC 更新指南",
+    "source_order": 64
+  }
+}

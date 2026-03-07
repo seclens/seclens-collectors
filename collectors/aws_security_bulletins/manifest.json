@@ -1,0 +1,22 @@
+{
+  "name": "AWS Security Bulletins Collector",
+  "version": "1.0.0",
+  "slug": "aws_security_bulletins",
+  "entrypoint": "collector:main",
+  "description": "Collects official AWS security bulletins from RSS feed.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Amazon Web Services",
+    "homepage": "https://aws.amazon.com/security/security-bulletins/",
+    "feed_url": "https://aws.amazon.com/security/security-bulletins/rss/feed/"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "AWS 安全公告",
+    "source_order": 63
+  }
+}

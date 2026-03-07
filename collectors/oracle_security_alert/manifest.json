@@ -1,0 +1,22 @@
+{
+  "name": "Oracle Security Alert Collector",
+  "version": "1.0.0",
+  "slug": "oracle_security_alert",
+  "entrypoint": "collector:main",
+  "description": "Collects Oracle official security alert advisories from RSS feed.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Oracle",
+    "homepage": "https://www.oracle.com/security-alerts/",
+    "feed_url": "https://www.oracle.com/ocom/groups/public/@otn/documents/webcontent/rss-otn-sec.xml"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Oracle 安全警报",
+    "source_order": 65
+  }
+}
