@@ -310,7 +310,14 @@ def main():
     fetch_content_enabled = os.environ.get("DOONSEC_FETCH_CONTENT_ENABLED", "").lower() in ("1", "true", "yes")
     fetch_timeout = int(os.environ.get("DOONSEC_FETCH_CONTENT_TIMEOUT", "30") or "30")
     fetch_limit = int(os.environ.get("DOONSEC_FETCH_CONTENT_LIMIT", "10") or "10")
-    browser_proxy = (os.environ.get("DOONSEC_BROWSER_PROXY") or "").strip() or None
+    browser_proxy = (
+        (os.environ.get("DOONSEC_BROWSER_PROXY") or "").strip()
+        or (os.environ.get("HTTPS_PROXY") or "").strip()
+        or (os.environ.get("HTTP_PROXY") or "").strip()
+        or (os.environ.get("https_proxy") or "").strip()
+        or (os.environ.get("http_proxy") or "").strip()
+        or None
+    )
 
     cached_urls = _load_cache()
     logger.info("Loaded cache: %d article URLs already seen", len(cached_urls))

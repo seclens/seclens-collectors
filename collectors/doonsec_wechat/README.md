@@ -55,7 +55,7 @@ export DOONSEC_WHITELIST_AUTHORS="奇安信,绿盟科技,安天集团"
 | `DOONSEC_FETCH_CONTENT_ENABLED` | No | false | Enable browser-based full article fetching |
 | `DOONSEC_FETCH_CONTENT_LIMIT` | No | 10 | Max number of entries to fetch full content per run |
 | `DOONSEC_FETCH_CONTENT_TIMEOUT` | No | 30 | Per-article browser fetch timeout (seconds) |
-| `DOONSEC_BROWSER_PROXY` | No | - | Browser proxy URL for WeChat fetcher, e.g. `http://host:port` |
+| `DOONSEC_BROWSER_PROXY` | No | - | Browser proxy URL for WeChat fetcher, e.g. `http://host:port` (if unset, fallback to `HTTPS_PROXY`/`HTTP_PROXY`) |
 
 ## Optional Full-Content Mode
 
