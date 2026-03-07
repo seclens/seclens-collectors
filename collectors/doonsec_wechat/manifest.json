@@ -1,0 +1,22 @@
+{
+  "name": "Doonsec WeChat RSS Collector",
+  "version": "1.0.0",
+  "slug": "doonsec_wechat",
+  "entrypoint": "collector:main",
+  "description": "Collects security articles from Doonsec WeChat RSS aggregator.",
+  "schedule": "1800",
+  "source": {
+    "publisher": "Doonsec",
+    "homepage": "https://wechat.doonsec.com/",
+    "feed_url": "https://wechat.doonsec.com/rss.xml"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "community_news",
+    "group_title": "社区情报",
+    "group_description": "来自安全社区与技术媒体的情报与观察。",
+    "group_order": 30,
+    "source_title": "Doonsec 微信聚合",
+    "source_order": 35
+  }
+}

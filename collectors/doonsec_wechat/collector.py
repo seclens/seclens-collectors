@@ -20,7 +20,6 @@ import os
 import re
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -29,8 +28,13 @@ import requests
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -48,6 +52,7 @@ REQUEST_HEADERS = {
     "User-Agent": USER_AGENT,
 }
 MAX_CACHE_SIZE = 2000
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 _HEX_ESCAPE_RE = re.compile(r"\\x([0-9A-Fa-f]{2})")
 _UNICODE_ESCAPE_RE = re.compile(r"\\u([0-9A-Fa-f]{4})")
@@ -63,7 +68,7 @@ logger = logging.getLogger(SOURCE_SLUG)
 # Cache helpers
 # ---------------------------------------------------------------------------
 
-CACHE_FILE = Path(__file__).parent / ".cache"
+CACHE_FILE = Path(__file__).parent / ".cursor"
 
 
 def _load_cache() -> set[str]:
@@ -214,6 +219,9 @@ def normalize(item: dict) -> dict:
             "source_slug": SOURCE_SLUG,
             "external_id": external_id,
             "origin_url": origin_url,
+            "manifest": MANIFEST,
+            "manifest_hash": MANIFEST_HASH,
+            "manifest_version": MANIFEST_VERSION,
         },
         "content": {
             "title": title,
@@ -330,11 +338,13 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(
-        f"Done: {len(bulletins)} fetched, "
-        f"{result.get('accepted', 0)} accepted, "
-        f"{result.get('duplicates', 0)} duplicates, "
-        f"{skipped_cache} cached, {skipped_whitelist} whitelist-filtered"
+    logger.info(
+        "Done: fetched=%d, accepted=%s, duplicates=%s, cached=%d, whitelist_filtered=%d",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+        skipped_cache,
+        skipped_whitelist,
     )
 
 
