@@ -48,6 +48,7 @@ REQUEST_TIMEOUT = 30
 
 CACHE_FILE = ".cursor"
 CACHE_LIMIT = 100
+INGEST_BATCH_SIZE = 10
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -158,6 +159,8 @@ class ThreatBookSilverFoxCollector:
         summary_content = summary_v2.get("content", "")
         if not summary_content:
             summary_content = title
+        title = str(title)[:500]
+        summary_content = str(summary_content)[:2000]
 
         # Build body_text from main_conclusions_v2
         main_conclusions = detail.get("main_conclusions_v2") or {}
@@ -190,6 +193,7 @@ class ThreatBookSilverFoxCollector:
         if related_anonymous:
             labels.append(f"group:{related_anonymous}")
         labels.extend([f"tag:{tag}" for tag in gpt_tags if tag])
+        labels = [str(label)[:100] for label in labels if label][:50]
 
         # Build topics
         topics = ["threat_intelligence"]
@@ -316,24 +320,39 @@ class ThreatBookSilverFoxCollector:
 # ---------------------------------------------------------------------------
 
 def push_to_seclens(bulletins: list[dict]) -> dict:
-    """Submit bulletins to the SecLens Ingest API."""
+    """Submit bulletins to the SecLens Ingest API in bounded chunks."""
     endpoint = f"{SECLENS_URL}/v1/ingest/bulletins"
-    logger.info("Pushing %d bulletins to %s", len(bulletins), endpoint)
-
-    resp = requests.post(
-        endpoint,
-        json=bulletins,
-        headers={
-            "Authorization": f"Bearer {SECLENS_TOKEN}",
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
-        timeout=REQUEST_TIMEOUT,
+    accepted_total = 0
+    duplicates_total = 0
+    for offset in range(0, len(bulletins), INGEST_BATCH_SIZE):
+        chunk = bulletins[offset : offset + INGEST_BATCH_SIZE]
+        logger.info(
+            "Pushing chunk %d-%d/%d to %s",
+            offset + 1,
+            offset + len(chunk),
+            len(bulletins),
+            endpoint,
+        )
+        resp = requests.post(
+            endpoint,
+            json=chunk,
+            headers={
+                "Authorization": f"Bearer {SECLENS_TOKEN}",
+                "Content-Type": "application/json",
+                "User-Agent": USER_AGENT,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        accepted_total += int(result.get("accepted", 0))
+        duplicates_total += int(result.get("duplicates", 0))
+    logger.info(
+        "Server response (aggregated): accepted=%s, duplicates=%s",
+        accepted_total,
+        duplicates_total,
     )
-    resp.raise_for_status()
-    result = resp.json()
-    logger.info("Server response: accepted=%s, duplicates=%s", result.get("accepted"), result.get("duplicates"))
-    return result
+    return {"accepted": accepted_total, "duplicates": duplicates_total}
 
 
 # ---------------------------------------------------------------------------
