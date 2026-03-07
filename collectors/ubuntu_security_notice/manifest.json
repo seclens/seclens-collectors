@@ -1,0 +1,22 @@
+{
+  "name": "Ubuntu Security Notices Collector",
+  "version": "1.0.0",
+  "slug": "ubuntu_security_notice",
+  "entrypoint": "collector:main",
+  "description": "Collects Ubuntu Security Notices (USN) from Ubuntu official RSS and JSON detail endpoints.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Ubuntu",
+    "homepage": "https://ubuntu.com/security/notices",
+    "feed_url": "https://ubuntu.com/security/notices/rss.xml"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "vendor_updates",
+    "group_title": "厂商发布",
+    "group_description": "厂商对产品安全、配置或策略的更新说明。",
+    "group_order": 10,
+    "source_title": "Ubuntu 安全通告",
+    "source_order": 50
+  }
+}
