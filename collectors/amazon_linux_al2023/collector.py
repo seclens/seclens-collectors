@@ -224,6 +224,10 @@ def normalize(entry: dict) -> dict:
         "cves": entry.get("cves"),
     }
 
+    raw_entry = dict(entry)
+    if isinstance(raw_entry.get("pub_date"), datetime):
+        raw_entry["pub_date"] = raw_entry["pub_date"].isoformat()
+
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
@@ -245,7 +249,7 @@ def normalize(entry: dict) -> dict:
         "labels": labels,
         "topics": topics,
         "extra": {k: v for k, v in extra.items() if v},
-        "raw": entry,
+        "raw": raw_entry,
     }
 
 
