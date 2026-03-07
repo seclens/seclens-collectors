@@ -1,0 +1,22 @@
+{
+  "name": "CNVDB Policy Collector",
+  "version": "1.0.0",
+  "slug": "cnvdb",
+  "entrypoint": "collector:main",
+  "description": "Collects vulnerability risk alerts from MIIT CNVDB platform.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "CNVDB",
+    "homepage": "https://cnvdb.org.cn",
+    "feed_url": "https://cnvdb.org.cn/#/policy"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "national_platforms",
+    "group_title": "国家平台",
+    "group_description": "国家级漏洞平台与官方预警发布。",
+    "group_order": 15,
+    "source_title": "工信部 CNVDB",
+    "source_order": 30
+  }
+}

@@ -14,15 +14,19 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Iterable, List
 
 import requests
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # Import the co-located client module
 from cnvdb_client import CNVDBClient
@@ -40,6 +44,7 @@ REQUEST_TIMEOUT = 30
 DEFAULT_PAGE_SIZE = 15
 DEFAULT_LANGUAGE = "zh"
 ORIGIN_URL_TEMPLATE = "https://cnvdb.org.cn/#/policy/detail/{policy_id}"
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -167,6 +172,9 @@ class CNVDBCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": policy_id or None,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": (detail or {}).get("title") or record.get("title") or "(untitled)",
@@ -183,7 +191,7 @@ class CNVDBCollector:
             "raw": {"summary": record, "detail": detail} if detail else {"summary": record},
         }
 
-    def collect(self, params: FetchParams | None = None) -> List[dict]:
+    def collect(self, params: FetchParams | None = None) -> list[dict]:
         params = params or FetchParams()
         records = self.fetch_records(params)
         bulletins: list[dict] = []
@@ -240,7 +248,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":

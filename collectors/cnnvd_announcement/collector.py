@@ -17,16 +17,20 @@ import logging
 import os
 import re
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Sequence
 
 import requests
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from shared.time_helpers import parse_first, now_utc_iso
+try:
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
+except ModuleNotFoundError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from shared.manifest import load_manifest_for_slug
+    from shared.time_helpers import now_utc_iso, parse_first
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -40,6 +44,7 @@ LIST_API_URL = "https://www.cnnvd.org.cn/web/homePage/vulWarnList"
 DETAIL_API_URL = "https://www.cnnvd.org.cn/web/homePage/vulWarnDetail"
 USER_AGENT = "SeclensCollector/2.0 (cnnvd_announcement)"
 REQUEST_TIMEOUT = 30
+MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -97,7 +102,7 @@ class CNNVDAnnouncementCollector:
         """Load processed warnId cache from file."""
         if self.cache_file.exists():
             try:
-                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                with open(self.cache_file, encoding='utf-8') as f:
                     data = json.load(f)
                     return set(data.get('warn_ids', []))
             except (json.JSONDecodeError, KeyError):
@@ -259,6 +264,9 @@ class CNNVDAnnouncementCollector:
                 "source_slug": SOURCE_SLUG,
                 "external_id": warn_id,
                 "origin_url": origin_url,
+                "manifest": MANIFEST,
+                "manifest_hash": MANIFEST_HASH,
+                "manifest_version": MANIFEST_VERSION,
             },
             "content": {
                 "title": warn_name,
@@ -275,7 +283,7 @@ class CNNVDAnnouncementCollector:
             "raw": raw,
         }
 
-    def collect(self, params: FetchParams | None = None) -> List[dict]:
+    def collect(self, params: FetchParams | None = None) -> list[dict]:
         """Collect and normalize CNNVD announcement data."""
         params = params or FetchParams()
         items = self.fetch_list(params)
@@ -344,7 +352,12 @@ def main():
         return
 
     result = push_to_seclens(bulletins)
-    print(f"Done: {len(bulletins)} fetched, {result.get('accepted', 0)} accepted, {result.get('duplicates', 0)} duplicates")
+    logger.info(
+        "Done: fetched=%d accepted=%s duplicates=%s",
+        len(bulletins),
+        result.get("accepted", 0),
+        result.get("duplicates", 0),
+    )
 
 
 if __name__ == "__main__":
