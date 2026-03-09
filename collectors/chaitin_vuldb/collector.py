@@ -62,6 +62,20 @@ def normalize(item: dict) -> dict:
     ext = cve or vuln_id or origin_url
     title = _trim(item.get("title")) or "(untitled)"
     summary = _trim(item.get("summary"))
+    body_parts: list[str] = []
+    impact = _trim(item.get("impact"))
+    if impact:
+        body_parts.append(f"Impact: {impact}")
+    fix_steps = _trim(item.get("fix_steps"))
+    if fix_steps:
+        body_parts.append(f"Mitigation: {fix_steps}")
+    refs = item.get("references") or []
+    if isinstance(refs, list) and refs:
+        ref_lines = [str(r).strip() for r in refs if str(r).strip()]
+        if ref_lines:
+            body_parts.append("References:\n" + "\n".join(ref_lines))
+    body_text = "\n\n".join(body_parts) if body_parts else None
+
     published_at = parse_datetime(item.get("disclosure_date")) or parse_datetime(item.get("created_at"))
 
     labels: list[str] = ["source:chaitin", "type:vuln"]
@@ -82,6 +96,7 @@ def normalize(item: dict) -> dict:
         "content": {
             "title": title,
             "summary": summary,
+            "body_text": body_text,
             "published_at": published_at,
             "language": "zh",
         },

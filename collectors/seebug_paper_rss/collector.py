@@ -45,7 +45,37 @@ def fetch_items() -> list[ET.Element]:
     return channel.findall("item") if channel is not None else root.findall(".//item")
 
 
-def normalize(item: ET.Element) -> dict:
+def fetch_detail_body(url: str | None) -> str | None:
+    if not url:
+        return None
+    try:
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.warning("detail fetch failed for %s: %s", url, exc)
+        return None
+
+    # Some targets anti-bot with tiny placeholder pages.
+    if len(resp.text or "") < 1500:
+        return None
+
+    body = None
+    # Prefer semantic article area; fallback to largest readable block.
+    import re
+
+    body_html = None
+    m = re.search(r'<article[^>]*>(.*?)</article>', resp.text, flags=re.I | re.S)
+    if m:
+        body_html = m.group(1)
+    if body_html:
+        # conservative html-strip
+        text = re.sub(r"<[^>]+>", " ", body_html)
+        body = _trim(" ".join(text.split()))
+
+    return body
+
+
+def normalize(item: ET.Element, body_text: str | None = None) -> dict:
     title = _trim(item.findtext("title")) or "(untitled)"
     link = _trim(item.findtext("link"))
     guid = _trim(item.findtext("guid"))
@@ -65,6 +95,7 @@ def normalize(item: ET.Element) -> dict:
         "content": {
             "title": title,
             "summary": description,
+            "body_text": body_text,
             "published_at": pub_date,
             "language": "zh",
         },
@@ -96,7 +127,11 @@ def main() -> None:
         raise SystemExit("SECLENS_URL and SECLENS_TOKEN are required")
 
     items = fetch_items()
-    bulletins = [normalize(i) for i in items]
+    bulletins = []
+    for i in items:
+        link = _trim(i.findtext("link"))
+        body_text = fetch_detail_body(link)
+        bulletins.append(normalize(i, body_text=body_text))
     logger.info("Fetched %d items from Seebug Paper RSS", len(bulletins))
     if not bulletins:
         return
