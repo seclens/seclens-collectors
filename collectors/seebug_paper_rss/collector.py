@@ -22,6 +22,7 @@ SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 FEED_URL = os.environ.get("SEEBUG_PAPER_RSS_URL", "https://paper.seebug.org/rss/")
 REQUEST_TIMEOUT = 30
 USER_AGENT = "SeclensCollector/2.0 (seebug_paper_rss)"
+FETCH_BODY = os.environ.get("SEEBUG_PAPER_FETCH_BODY", "").lower() in {"1", "true", "yes"}
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
     SOURCE_SLUG, repo_root=Path(__file__).resolve().parents[2]
 )
@@ -129,10 +130,12 @@ def main() -> None:
     items = fetch_items()
     bulletins = []
     for i in items:
-        link = _trim(i.findtext("link"))
-        body_text = fetch_detail_body(link)
+        body_text = None
+        if FETCH_BODY:
+            link = _trim(i.findtext("link"))
+            body_text = fetch_detail_body(link)
         bulletins.append(normalize(i, body_text=body_text))
-    logger.info("Fetched %d items from Seebug Paper RSS", len(bulletins))
+    logger.info("Fetched %d items from Seebug Paper RSS (fetch_body=%s)", len(bulletins), FETCH_BODY)
     if not bulletins:
         return
 

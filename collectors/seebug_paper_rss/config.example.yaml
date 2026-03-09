@@ -1,3 +1,5 @@
 seclens_url: "https://seclens.info"
 seclens_token: "slct_xxx"
 seebug_paper_rss_url: "https://paper.seebug.org/rss/"
+# default false: use RSS title/summary only; detail page often blocked by JS challenge (521)
+seebug_paper_fetch_body: false
