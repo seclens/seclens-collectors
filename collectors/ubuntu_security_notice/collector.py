@@ -39,7 +39,7 @@ SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 FEED_URL = os.environ.get(
     "UBUNTU_FEED_URL", "https://ubuntu.com/security/notices/rss.xml"
 )
-SOURCE_SLUG = "ubuntu_security"
+SOURCE_SLUG = "ubuntu_security_notice"
 USER_AGENT = "SeclensCollector/2.0 (ubuntu_security_notice)"
 REQUEST_TIMEOUT = 30
 DEFAULT_LIMIT = 20

@@ -568,7 +568,6 @@ def collect(
 ) -> tuple[list[dict], dict]:
     """Collect and normalize Adobe security advisories."""
     session = requests.Session()
-    session.headers.update(REQUEST_HEADERS)
 
     url = list_url or LIST_URL
     listing = _fetch_listing(session, url, limit)
