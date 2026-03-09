@@ -41,25 +41,27 @@ DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2}|20\d{6})")
 def _decode_html(resp: requests.Response) -> str:
     """Decode response content with explicit Chinese-encoding fallbacks.
 
-    Some vendor pages may serve legacy encodings (GBK/GB18030) or misleading
-    charset headers. We decode from bytes to avoid mojibake.
+    Some pages return a misleading default header charset (e.g. ISO-8859-1)
+    while actual bytes are UTF-8. We decode from bytes and deprioritize
+    latin-1 style headers to avoid mojibake.
     """
-    # Prefer explicit charset from HTTP header when present.
-    preferred: list[str] = []
-    if resp.encoding:
-        preferred.append(resp.encoding)
+    preferred: list[str] = ["utf-8"]
 
-    # Add detector hint and common fallbacks.
-    if getattr(resp, "apparent_encoding", None):
-        preferred.append(resp.apparent_encoding)
-    preferred.extend(["utf-8", "gb18030", "gbk"])
+    apparent = (getattr(resp, "apparent_encoding", None) or "").lower()
+    if apparent and apparent not in {"iso-8859-1", "latin1", "latin-1"}:
+        preferred.append(apparent)
+
+    header_enc = (resp.encoding or "").lower()
+    if header_enc and header_enc not in {"iso-8859-1", "latin1", "latin-1"}:
+        preferred.append(header_enc)
+
+    preferred.extend(["gb18030", "gbk"])
 
     dammit = UnicodeDammit(resp.content, [enc for enc in preferred if enc])
     if dammit.unicode_markup:
         return dammit.unicode_markup
 
-    # Last-resort strict fallback that still keeps Chinese readable in most cases.
-    return resp.content.decode("gb18030", errors="replace")
+    return resp.content.decode("utf-8", errors="replace")
 
 
 def _trim(value: str | None) -> str | None:
