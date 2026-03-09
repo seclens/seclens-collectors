@@ -78,6 +78,17 @@ def normalize(item: dict) -> dict:
     if _trim(item.get("knownRansomwareCampaignUse")):
         labels.append(f"ransomware:{_trim(item.get('knownRansomwareCampaignUse')).lower()}")
 
+    body_lines = []
+    if notes:
+        body_lines.append(f"Notes: {notes}")
+    if item.get("requiredAction"):
+        body_lines.append(f"Required action: {item.get('requiredAction')}")
+    if item.get("knownRansomwareCampaignUse"):
+        body_lines.append(f"Known ransomware campaign use: {item.get('knownRansomwareCampaignUse')}")
+    if item.get("dueDate"):
+        body_lines.append(f"Due date: {item.get('dueDate')}")
+    body_text = "\n".join(body_lines) if body_lines else None
+
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
@@ -90,6 +101,7 @@ def normalize(item: dict) -> dict:
         "content": {
             "title": title,
             "summary": summary,
+            "body_text": body_text,
             "published_at": published_at,
             "language": "en",
         },

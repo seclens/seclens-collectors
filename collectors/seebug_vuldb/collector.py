@@ -71,25 +71,35 @@ def fetch_list() -> list[tuple[str, str, str]]:
     return items
 
 
-def fetch_detail_summary(url: str) -> str | None:
+def fetch_detail(url: str) -> tuple[str | None, str | None]:
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except Exception as exc:
         logger.warning("detail fetch failed for %s: %s", url, exc)
-        return None
+        return None, None
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    summary = None
     meta_desc = soup.find("meta", attrs={"name": "description"})
     if meta_desc and meta_desc.get("content"):
-        return _trim(meta_desc.get("content"))
-    og_desc = soup.find("meta", attrs={"property": "og:description"})
-    if og_desc and og_desc.get("content"):
-        return _trim(og_desc.get("content"))
-    return None
+        summary = _trim(meta_desc.get("content"))
+    if not summary:
+        og_desc = soup.find("meta", attrs={"property": "og:description"})
+        if og_desc and og_desc.get("content"):
+            summary = _trim(og_desc.get("content"))
+
+    body_text = None
+    detail_node = soup.select_one(".page-vul-detail-wrapper") or soup.select_one("#j-affix-target")
+    if detail_node:
+        candidate = _trim(detail_node.get_text("\n", strip=True))
+        if candidate and "登录后查看" not in candidate:
+            body_text = candidate
+
+    return summary, body_text
 
 
-def normalize(ssvid: str, title: str, origin_url: str, summary: str | None) -> dict:
+def normalize(ssvid: str, title: str, origin_url: str, summary: str | None, body_text: str | None) -> dict:
     return {
         "source": {
             "source_slug": SOURCE_SLUG,
@@ -102,6 +112,7 @@ def normalize(ssvid: str, title: str, origin_url: str, summary: str | None) -> d
         "content": {
             "title": title,
             "summary": summary,
+            "body_text": body_text,
             "published_at": None,
             "language": "zh",
         },
@@ -137,8 +148,8 @@ def main() -> None:
 
     bulletins = []
     for ssvid, title, url in items:
-        summary = fetch_detail_summary(url)
-        bulletins.append(normalize(ssvid, title, url, summary))
+        summary, body_text = fetch_detail(url)
+        bulletins.append(normalize(ssvid, title, url, summary, body_text))
 
     if not bulletins:
         logger.info("No bulletins to push")

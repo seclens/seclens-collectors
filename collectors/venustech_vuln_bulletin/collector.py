@@ -93,13 +93,13 @@ def fetch_list() -> list[tuple[str, str]]:
     return rows
 
 
-def fetch_detail(url: str) -> tuple[str | None, str | None]:
+def fetch_detail(url: str) -> tuple[str | None, str | None, str | None]:
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
         resp.raise_for_status()
     except Exception as exc:
         logger.warning("detail fetch failed for %s: %s", url, exc)
-        return None, None
+        return None, None, None
 
     soup = BeautifulSoup(_decode_html(resp), "html.parser")
     desc = None
@@ -115,10 +115,16 @@ def fetch_detail(url: str) -> tuple[str | None, str | None]:
         if len(raw) == 8 and raw.isdigit():
             raw = f"{raw[0:4]}-{raw[4:6]}-{raw[6:8]}"
         published_at = parse_datetime(raw + " 00:00:00", default_tz="Asia/Shanghai")
-    return desc, published_at
+
+    body_text = None
+    body_node = soup.select_one(".news_text") or soup.select_one(".news-content")
+    if body_node:
+        body_text = _trim(body_node.get_text("\n", strip=True))
+
+    return desc, published_at, body_text
 
 
-def normalize(origin_url: str, title: str, summary: str | None, published_at: str | None) -> dict:
+def normalize(origin_url: str, title: str, summary: str | None, published_at: str | None, body_text: str | None) -> dict:
     external_id = origin_url.rsplit("/", 1)[-1].replace(".html", "")
     return {
         "source": {
@@ -132,6 +138,7 @@ def normalize(origin_url: str, title: str, summary: str | None, published_at: st
         "content": {
             "title": title,
             "summary": summary,
+            "body_text": body_text,
             "published_at": published_at,
             "language": "zh",
         },
@@ -166,8 +173,8 @@ def main() -> None:
     logger.info("Fetched %d list entries", len(rows))
     bulletins = []
     for url, title in rows:
-        summary, published_at = fetch_detail(url)
-        bulletins.append(normalize(url, title, summary, published_at))
+        summary, published_at, body_text = fetch_detail(url)
+        bulletins.append(normalize(url, title, summary, published_at, body_text))
 
     if not bulletins:
         return
