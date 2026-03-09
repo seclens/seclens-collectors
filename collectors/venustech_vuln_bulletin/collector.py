@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from bs4 import UnicodeDammit
 
 try:
     from shared.manifest import load_manifest_for_slug
@@ -37,6 +38,32 @@ DETAIL_RE = re.compile(r"/new_type/aqtg/\d{8}/\d+\.html")
 DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2}|20\d{6})")
 
 
+def _decode_html(resp: requests.Response) -> str:
+    """Decode response content with explicit Chinese-encoding fallbacks.
+
+    Some pages return a misleading default header charset (e.g. ISO-8859-1)
+    while actual bytes are UTF-8. We decode from bytes and deprioritize
+    latin-1 style headers to avoid mojibake.
+    """
+    preferred: list[str] = ["utf-8"]
+
+    apparent = (getattr(resp, "apparent_encoding", None) or "").lower()
+    if apparent and apparent not in {"iso-8859-1", "latin1", "latin-1"}:
+        preferred.append(apparent)
+
+    header_enc = (resp.encoding or "").lower()
+    if header_enc and header_enc not in {"iso-8859-1", "latin1", "latin-1"}:
+        preferred.append(header_enc)
+
+    preferred.extend(["gb18030", "gbk"])
+
+    dammit = UnicodeDammit(resp.content, [enc for enc in preferred if enc])
+    if dammit.unicode_markup:
+        return dammit.unicode_markup
+
+    return resp.content.decode("utf-8", errors="replace")
+
+
 def _trim(value: str | None) -> str | None:
     if not value:
         return None
@@ -47,7 +74,7 @@ def _trim(value: str | None) -> str | None:
 def fetch_list() -> list[tuple[str, str]]:
     resp = requests.get(LIST_URL, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(_decode_html(resp), "html.parser")
 
     rows: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -74,7 +101,7 @@ def fetch_detail(url: str) -> tuple[str | None, str | None]:
         logger.warning("detail fetch failed for %s: %s", url, exc)
         return None, None
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(_decode_html(resp), "html.parser")
     desc = None
     meta = soup.find("meta", attrs={"name": "description"})
     if meta and meta.get("content"):
