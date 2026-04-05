@@ -42,7 +42,7 @@ except ModuleNotFoundError:
 SECLENS_URL = os.environ.get("SECLENS_URL", "").rstrip("/")
 SECLENS_TOKEN = os.environ.get("SECLENS_TOKEN", "")
 
-DEFAULT_LIST_URL = "https://www.tc260.org.cn/front/bzzqyjList.html"
+DEFAULT_LIST_URL = "https://www.tc260.org.cn/portal/suggestion"
 DETAIL_BASE_URL = "https://www.tc260.org.cn"
 SOURCE_SLUG = "tc260_consultations"
 USER_AGENT = "SeclensCollector/2.0 (tc260_consultations)"
@@ -65,6 +65,8 @@ logger = logging.getLogger(SOURCE_SLUG)
 
 if not VERIFY_SSL:
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+DETAIL_HANDLER_RE = re.compile(r"jumpDetail\('(?P<id>[0-9a-f]+)','(?P<deadline>[^']+)'\)")
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +98,123 @@ def save_cursor(cursor: str) -> None:
     path.write_text(cursor.strip(), encoding="utf-8")
 
 
+def _extract_lines(node: BeautifulSoup | None) -> list[str]:
+    if node is None:
+        return []
+    return [
+        segment.strip()
+        for segment in node.get_text("\n", strip=True).split("\n")
+        if segment.strip()
+    ]
+
+
+def _build_detail_url(suggestion_id: str) -> str:
+    return urljoin(DETAIL_BASE_URL, f"/portal/suggestion-detail/{suggestion_id}")
+
+
+def _parse_portal_list_items(soup: BeautifulSoup, limit: int | None = None) -> list[dict]:
+    collected: list[dict] = []
+    for item_node in soup.select("div.item"):
+        anchor = item_node.find("a")
+        if anchor is None:
+            continue
+        onclick = anchor.get("onclick", "")
+        match = DETAIL_HANDLER_RE.search(onclick)
+        if not match:
+            continue
+
+        title = _clean_text(anchor.get_text(" ", strip=True))
+        spans = item_node.find_all("span")
+        published_raw = _clean_text(spans[-1].get_text(strip=True) if spans else None)
+        suggestion_id = match.group("id")
+        deadline = _clean_text(match.group("deadline"))
+
+        if not title:
+            continue
+
+        collected.append(
+            {
+                "title": title,
+                "detail_url": _build_detail_url(suggestion_id),
+                "deadline": deadline,
+                "published_raw": published_raw,
+                "suggestion_id": suggestion_id,
+            }
+        )
+        if limit and len(collected) >= limit:
+            break
+
+    return collected
+
+
+def _parse_legacy_list_items(soup: BeautifulSoup, limit: int | None = None) -> list[dict]:
+    collected: list[dict] = []
+    for li in soup.select("li.list-group-item.list_title_news"):
+        anchor = li.find("a")
+        if anchor is None or not anchor.get("href"):
+            continue
+        title = _clean_text(anchor.get_text(strip=True))
+        detail_url = urljoin(DETAIL_BASE_URL, anchor["href"])
+        deadline_node = li.find(class_="list_time")
+        deadline = _clean_text(deadline_node.get_text(strip=True) if deadline_node else None)
+
+        if not title:
+            continue
+
+        collected.append(
+            {
+                "title": title,
+                "detail_url": detail_url,
+                "deadline": deadline,
+                "published_raw": None,
+                "suggestion_id": None,
+            }
+        )
+        if limit and len(collected) >= limit:
+            break
+
+    return collected
+
+
+def _extract_attachments(detail_soup: BeautifulSoup) -> list[dict]:
+    attachments: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    for anchor in detail_soup.select("a[href^='/sysFile/downloadFile/']"):
+        href = anchor.get("href")
+        name = _clean_text(anchor.get_text(" ", strip=True))
+        if not href or not name:
+            continue
+
+        download_url = urljoin(DETAIL_BASE_URL, href)
+        dedupe_key = (download_url, name)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        label = None
+        parent_li = anchor.find_parent("li")
+        if parent_li is not None:
+            label_node = parent_li.find("label")
+            label = _clean_text(label_node.get_text(" ", strip=True).rstrip("：:")) if label_node else None
+
+        file_ext = None
+        if "." in name.rsplit("/", 1)[-1]:
+            file_ext = name.rsplit(".", 1)[-1].lower()
+
+        attachments.append(
+            {
+                "label": label,
+                "name": name,
+                "url": download_url,
+                "file_id": download_url.rsplit("/", 1)[-1],
+                "file_ext": file_ext,
+            }
+        )
+
+    return attachments
+
+
 # ---------------------------------------------------------------------------
 # Fetch
 # ---------------------------------------------------------------------------
@@ -106,35 +225,14 @@ def fetch_list(list_url: str = DEFAULT_LIST_URL, limit: int | None = None) -> li
     session = requests.Session()
     session.headers.update(REQUEST_HEADERS)
 
-    page_url = f"{list_url}?start=0&length={PAGE_SIZE}"
+    page_url = list_url
     logger.info("Fetching list: %s", page_url)
     response = session.get(page_url, timeout=REQUEST_TIMEOUT, verify=VERIFY_SSL)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
-    items = soup.select("li.list-group-item.list_title_news")
-
-    collected: list[dict] = []
-    for li in items:
-        anchor = li.find("a")
-        if anchor is None or not anchor.get("href"):
-            continue
-        title = anchor.get_text(strip=True)
-        detail_url = urljoin(DETAIL_BASE_URL, anchor["href"])
-        deadline_node = li.find(class_="list_time")
-        deadline = _clean_text(deadline_node.get_text(strip=True) if deadline_node else None)
-
-        collected.append(
-            {
-                "title": title,
-                "detail_url": detail_url,
-                "deadline": deadline,
-            }
-        )
-        if limit and len(collected) >= limit:
-            break
-
-    if limit:
-        collected = collected[:limit]
+    collected = _parse_portal_list_items(soup, limit=limit)
+    if not collected:
+        collected = _parse_legacy_list_items(soup, limit=limit)
 
     logger.info("Fetched %d items from list", len(collected))
     return collected
@@ -165,20 +263,13 @@ def normalize(item: dict) -> dict | None:
     if detail_soup is None:
         return None
 
-    content_node = detail_soup.select_one("div.news_end")
-    if content_node is None:
-        return None
-
-    lines = [
-        segment.strip()
-        for segment in content_node.get_text("\n", strip=True).split("\n")
-        if segment.strip()
-    ]
+    content_node = detail_soup.select_one("div.info") or detail_soup.select_one("div.advice-c")
+    lines = _extract_lines(content_node)
     if not lines:
         return None
 
     # Determine published date
-    published_raw = None
+    published_raw = item.get("published_raw")
     for line in lines:
         match = re.search(r"\d{4}-\d{2}-\d{2}", line)
         if match:
@@ -193,9 +284,13 @@ def normalize(item: dict) -> dict | None:
     body_text = "\n".join(lines)
     summary = "".join(lines[1:3]) if len(lines) > 1 else lines[0]
     summary = summary[:280]
+    attachments = _extract_attachments(detail_soup)
 
     extra: dict = {
         "deadline": item.get("deadline"),
+        "suggestion_id": item.get("suggestion_id"),
+        "attachments": attachments,
+        "attachment_count": len(attachments),
     }
 
     return {
@@ -224,6 +319,7 @@ def normalize(item: dict) -> dict | None:
             "detail_url": item["detail_url"],
             "deadline": item.get("deadline"),
             "published_raw": published_raw,
+            "attachments": attachments,
         },
     }
 

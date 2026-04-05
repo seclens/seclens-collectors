@@ -1,11 +1,11 @@
 # TC260 Consultations Collector
 
-Scrapes consultation announcements from [TC260](https://www.tc260.org.cn/front/bzzqyjList.html) (National Information Security Standardization Technical Committee).
+Scrapes consultation announcements from [TC260](https://www.tc260.org.cn/portal/suggestion) (National Information Security Standardization Technical Committee).
 
 ## Source
 
 - **Publisher:** TC260 (全国信息安全标准化技术委员会)
-- **URL:** https://www.tc260.org.cn/front/bzzqyjList.html
+- **URL:** https://www.tc260.org.cn/portal/suggestion
 - **Content Type:** Standard consultation drafts and announcements
 - **Language:** Chinese (zh)
 - **Update Frequency:** Several times per month
@@ -41,3 +41,5 @@ Recommended: every 4 hours.
 | `SECLENS_URL` | Yes | - | SecLens server URL |
 | `SECLENS_TOKEN` | Yes | - | API token for authentication |
 | `TC260_VERIFY_SSL` | No | `true` | Set to `false` to ignore upstream TLS certificate validation failures |
+
+The collector also parses detail-page attachments and stores attachment names and download URLs in bulletin metadata.
