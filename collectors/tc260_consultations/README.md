@@ -40,3 +40,4 @@ Recommended: every 4 hours.
 |----------|----------|---------|-------------|
 | `SECLENS_URL` | Yes | - | SecLens server URL |
 | `SECLENS_TOKEN` | Yes | - | API token for authentication |
+| `TC260_VERIFY_SSL` | No | `true` | Set to `false` to ignore upstream TLS certificate validation failures |

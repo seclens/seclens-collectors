@@ -21,6 +21,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from urllib3.exceptions import InsecureRequestWarning
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -46,6 +47,7 @@ DETAIL_BASE_URL = "https://www.tc260.org.cn"
 SOURCE_SLUG = "tc260_consultations"
 USER_AGENT = "SeclensCollector/2.0 (tc260_consultations)"
 REQUEST_TIMEOUT = 30
+VERIFY_SSL = os.environ.get("TC260_VERIFY_SSL", "true").strip().lower() not in {"0", "false", "no", "off"}
 REQUEST_HEADERS = {
     "User-Agent": USER_AGENT,
     "Referer": "https://www.tc260.org.cn/",
@@ -60,6 +62,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(SOURCE_SLUG)
+
+if not VERIFY_SSL:
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +108,7 @@ def fetch_list(list_url: str = DEFAULT_LIST_URL, limit: int | None = None) -> li
 
     page_url = f"{list_url}?start=0&length={PAGE_SIZE}"
     logger.info("Fetching list: %s", page_url)
-    response = session.get(page_url, timeout=REQUEST_TIMEOUT)
+    response = session.get(page_url, timeout=REQUEST_TIMEOUT, verify=VERIFY_SSL)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
     items = soup.select("li.list-group-item.list_title_news")
@@ -139,7 +144,7 @@ def fetch_detail(url: str) -> BeautifulSoup | None:
     """Fetch detail page content."""
     session = requests.Session()
     session.headers.update(REQUEST_HEADERS)
-    response = session.get(url, timeout=REQUEST_TIMEOUT)
+    response = session.get(url, timeout=REQUEST_TIMEOUT, verify=VERIFY_SSL)
     response.raise_for_status()
     return BeautifulSoup(response.text, "html.parser")
 

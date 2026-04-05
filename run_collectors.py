@@ -283,6 +283,7 @@ def _resolve_schedule(
         anchor_source = "env-override"
 
     next_due = _compute_next_due(anchor, interval, now_utc, inclusive=True)
+    state_matches_schedule = False
 
     if state_entry:
         state_interval = state_entry.get("interval_minutes")
@@ -293,8 +294,14 @@ def _resolve_schedule(
                 state_anchor = _parse_utc_datetime(state_anchor_raw)
                 if state_anchor == anchor:
                     next_due = _parse_utc_datetime(state_next_raw)
+                    state_matches_schedule = True
             except ValueError:
                 pass
+
+    # Bootstrap newly enabled collectors, or collectors whose schedule changed,
+    # on the next scheduler pass instead of waiting for the exact anchor minute.
+    if not state_matches_schedule:
+        next_due = now_utc
 
     plugin_env: dict[str, str] = {}
     if isinstance(override, dict):

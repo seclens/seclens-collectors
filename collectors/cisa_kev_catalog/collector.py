@@ -24,7 +24,7 @@ JSON_FEED_URL = os.environ.get(
 )
 REQUEST_TIMEOUT = 45
 USER_AGENT = "SeclensCollector/2.0 (cisa_kev_catalog)"
-BATCH_SIZE = int(os.environ.get("CISA_KEV_BATCH_SIZE", "200"))
+BATCH_SIZE = int(os.environ.get("CISA_KEV_BATCH_SIZE", "50"))
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(
     SOURCE_SLUG, repo_root=Path(__file__).resolve().parents[2]
 )
