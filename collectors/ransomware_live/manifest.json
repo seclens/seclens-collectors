@@ -1,0 +1,22 @@
+{
+  "name": "Ransomware.live Recent Victims Collector",
+  "version": "1.0.0",
+  "slug": "ransomware_live",
+  "entrypoint": "collector:main",
+  "description": "Collects recently discovered ransomware victim disclosures from Ransomware.live.",
+  "schedule": "3600",
+  "source": {
+    "publisher": "Ransomware.live",
+    "homepage": "https://www.ransomware.live/",
+    "feed_url": "https://api-pro.ransomware.live/victims/recent?order=discovered"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "threat_intel",
+    "group_title": "威胁情报",
+    "group_description": "针对攻击活动、样本与IOC的持续情报更新。",
+    "group_order": 12,
+    "source_title": "Ransomware.live 近期受害者",
+    "source_order": 50
+  }
+}

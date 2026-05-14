@@ -1,0 +1,11 @@
+# SecLens server connection
+seclens_url: "https://your-seclens-server.com"
+seclens_token: ""  # Get this from your SecLens admin
+
+# Source-specific settings
+api_url: "https://api-pro.ransomware.live/victims/recent?order=discovered"
+api_key: ""  # Set via RANSOMWARE_LIVE_API_KEY environment variable
+batch_size: 50
+
+# Recommended schedule: every 1 hour
+# crontab: 0 * * * * cd /path/to/collector && python collector.py

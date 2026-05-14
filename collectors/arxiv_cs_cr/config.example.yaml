@@ -1,0 +1,14 @@
+# SecLens server connection
+seclens_url: "https://seclens.info"
+seclens_token: "slct_xxx"
+
+# Source-specific settings
+api_url: "https://export.arxiv.org/api/query"
+rss_url: "https://rss.arxiv.org/rss/cs.CR"
+search_query: "cat:cs.CR"
+max_results: 50
+sort_by: "submittedDate"
+sort_order: "descending"
+
+# Recommended schedule: every 24 hours
+# The arXiv category feed is updated daily; keep polling low-frequency.

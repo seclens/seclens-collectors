@@ -1,0 +1,24 @@
+{
+  "name": "arXiv cs.CR Collector",
+  "version": "1.0.0",
+  "slug": "arxiv_cs_cr",
+  "entrypoint": "collector:main",
+  "description": "Collects recent arXiv papers from Computer Science > Cryptography and Security (cs.CR).",
+  "schedule": "86400",
+  "source": {
+    "publisher": "arXiv",
+    "homepage": "https://arxiv.org/list/cs.CR/recent",
+    "feed_url": "https://rss.arxiv.org/rss/cs.CR",
+    "api_url": "https://export.arxiv.org/api/query",
+    "category": "cs.CR"
+  },
+  "runtime": {},
+  "ui": {
+    "group_slug": "security_research",
+    "group_title": "安全研究",
+    "group_description": "安全研究、论文、报告与技术分析。",
+    "group_order": 35,
+    "source_title": "arXiv cs.CR",
+    "source_order": 20
+  }
+}
