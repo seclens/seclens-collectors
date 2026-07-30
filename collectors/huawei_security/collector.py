@@ -18,6 +18,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote, urljoin
 
 import requests
 
@@ -43,6 +44,8 @@ STATE_FILE_NAME = ".cursor"
 MANIFEST, MANIFEST_HASH, MANIFEST_VERSION = load_manifest_for_slug(SOURCE_SLUG)
 
 API_URL = "https://securitybulletin.huawei.com/vdmsapi/services/vdmsapi/rest/v1/enterprise/advisories"
+HUAWEI_SITE_URL = "https://securitybulletin.huawei.com"
+DETAIL_PATH_TEMPLATE = "/enterprise/{language}/sa/detail/{sasn_no}"
 DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
@@ -108,7 +111,24 @@ class HuaweiCollector:
         self.session = session or requests.Session()
         self.session.headers.update(DEFAULT_HEADERS)
 
-    def fetch(self, params: FetchParams) -> Sequence[dict]:
+    @staticmethod
+    def _extract_records(body: dict) -> tuple[list[dict], dict]:
+        data = body.get("data")
+        page = body.get("page") if isinstance(body.get("page"), dict) else {}
+        if isinstance(data, list):
+            return data, page
+        if isinstance(data, dict):
+            records = (
+                data.get("records")
+                or data.get("rows")
+                or data.get("list")
+                or data.get("data")
+            )
+            if isinstance(records, list):
+                return records, page
+        return [], page
+
+    def fetch_page(self, params: FetchParams) -> tuple[Sequence[dict], dict]:
         payload = {
             "keyword": params.keyword,
             "publishDateFrom": params.publish_date_from,
@@ -129,19 +149,41 @@ class HuaweiCollector:
         response = self.session.post(API_URL, params=query, json=payload, timeout=30)
         response.raise_for_status()
         body = response.json()
-        data = body.get("data")
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            records = (
-                data.get("records")
-                or data.get("rows")
-                or data.get("list")
-                or data.get("data")
-            )
-            if isinstance(records, list):
-                return records
-        return []
+        records, page = self._extract_records(body)
+        return records, page
+
+    def fetch(self, params: FetchParams) -> Sequence[dict]:
+        records, _ = self.fetch_page(params)
+        return records
+
+    @staticmethod
+    def _origin_url(item: dict) -> str | None:
+        """Return Huawei's canonical detail URL when the list API omits one."""
+        for field in ("advisoryUrl", "url", "allPath"):
+            value = item.get(field)
+            if value:
+                return urljoin(HUAWEI_SITE_URL, str(value).strip())
+
+        sasn_no = str(item.get("sasnNo") or "").strip()
+        if not sasn_no:
+            return None
+        language = str(item.get("lang") or item.get("language") or "en").strip().lower()
+        language = language if language in {"en", "cn"} else "en"
+        encoded_sasn_no = quote(sasn_no, safe="")
+        return urljoin(
+            HUAWEI_SITE_URL,
+            DETAIL_PATH_TEMPLATE.format(language=language, sasn_no=encoded_sasn_no),
+        )
+
+    @staticmethod
+    def _external_id(item: dict) -> str | None:
+        for field in ("advisoryNo", "id", "docId", "sasnNo"):
+            value = item.get(field)
+            if value is not None:
+                normalized = str(value).strip()
+                if normalized:
+                    return normalized
+        return None
 
     def normalize(self, item: dict) -> dict:
         title = (
@@ -151,7 +193,7 @@ class HuaweiCollector:
             or item.get("sasnTitle")
             or ""
         )
-        origin_url = item.get("advisoryUrl") or item.get("url") or item.get("allPath")
+        origin_url = self._origin_url(item)
         summary = item.get("summary") or item.get("overview") or item.get("description")
         body_text = item.get("content") or item.get("details") or summary
         fetched_at = now_utc_iso()
@@ -181,14 +223,7 @@ class HuaweiCollector:
         if not isinstance(cve_ids, list):
             cve_ids = []
 
-        external_id = (
-            item.get("advisoryNo")
-            or item.get("id")
-            or item.get("docId")
-            or item.get("sasnNo")
-        )
-        if external_id is not None:
-            external_id = str(external_id).strip() or None
+        external_id = self._external_id(item)
 
         normalized_labels = [label for label in labels if label]
         if cve_ids:
@@ -236,9 +271,50 @@ class HuaweiCollector:
             "raw": raw,
         }
 
-    def collect(self, params: FetchParams | None = None) -> list[dict]:
+    def collect(
+        self,
+        params: FetchParams | None = None,
+        stop_at_external_id: str | None = None,
+    ) -> list[dict]:
         params = params or FetchParams()
-        items = self.fetch(params)
+        items: list[dict] = []
+        page_index = params.page_index
+
+        while True:
+            page_params = FetchParams(
+                page_index=page_index,
+                page_size=params.page_size,
+                sort=params.sort,
+                sort_field=params.sort_field,
+                keyword=params.keyword,
+                publish_date_from=params.publish_date_from,
+                publish_date_to=params.publish_date_to,
+                product_line=params.product_line,
+                range=params.range,
+            )
+            page_items, page = self.fetch_page(page_params)
+            items.extend(page_items)
+
+            # A cursor is the newest previously submitted item. The Huawei API
+            # returns publish_date descending for sort=1, so stop once it is
+            # encountered. Without a cursor, retain the original one-page
+            # bootstrap behavior instead of replaying the entire archive.
+            if not stop_at_external_id or any(
+                self._external_id(item) == str(stop_at_external_id).strip()
+                for item in page_items
+            ):
+                break
+            if not page_items:
+                break
+            total_pages = page.get("totalPages")
+            try:
+                if total_pages is not None and page_index >= int(total_pages):
+                    break
+            except (TypeError, ValueError):
+                LOGGER.warning("Huawei API returned invalid totalPages=%r", total_pages)
+                break
+            page_index += 1
+
         return [self.normalize(item) for item in items]
 
 
@@ -286,11 +362,11 @@ def main():
         sys.exit(1)
 
     collector = HuaweiCollector()
-    bulletins = collector.collect()
+    previous_cursor = load_cursor()
+    bulletins = collector.collect(stop_at_external_id=previous_cursor)
     latest_cursor = None
     if bulletins:
         latest_cursor = bulletins[0].get("source", {}).get("external_id")
-    previous_cursor = load_cursor()
     if previous_cursor:
         filtered: list[dict] = []
         for bulletin in bulletins:

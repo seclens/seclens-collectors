@@ -2,6 +2,12 @@
 
 Fetches enterprise security advisories from [Huawei Security Bulletin](https://securitybulletin.huawei.com/enterprise/en/security-advisory).
 
+The collector preserves an API-provided source URL when available. Huawei's
+current list API usually returns `allPath: null`, so it derives the canonical
+advisory detail URL from `sasnNo`. When a cursor exists, it follows subsequent
+API pages until the previous cursor is found, preventing missed advisories when
+more than one page is published between scheduled runs.
+
 ## Source
 
 - **Publisher:** Huawei

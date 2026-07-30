@@ -1,6 +1,6 @@
 {
   "name": "Huawei Security Advisory Collector",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "slug": "huawei_security",
   "entrypoint": "collector:main",
   "description": "Collects enterprise security advisories from Huawei PSIRT API.",
